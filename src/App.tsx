@@ -107,9 +107,6 @@ export const App: React.FC = () => {
   const [isGentleAlertOpen, setIsGentleAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
-  // Active AI engine label (Gemini / DeepSeek), fetched from server
-  const [engineLabel, setEngineLabel] = useState<string>('AI 智能引擎');
-
   // AI Tutor Modal
   const [aiModal, setAiModal] = useState<{
     isOpen: boolean;
@@ -136,16 +133,6 @@ export const App: React.FC = () => {
     });
     setActiveTab('practice');
   };
-
-  // Fetch active AI engine info once
-  useEffect(() => {
-    fetch('/api/ai/status')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.label) setEngineLabel(data.label);
-      })
-      .catch(() => {});
-  }, []);
 
   // Compute real streak days from answer records (consecutive active days)
   useEffect(() => {
@@ -492,7 +479,7 @@ export const App: React.FC = () => {
             <span>·</span>
             <span>复杂图推</span>
             <span>·</span>
-            <span>{engineLabel} 引擎驱动</span>
+            <span>多模型 AI 引擎驱动</span>
           </div>
         </div>
       </footer>
