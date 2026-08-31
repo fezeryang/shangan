@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* 纸质文韵与暖砚墨色主题 - Tactile Paper & Mineral Ink Aesthetic */
+:root {
+  --color-paper-bg: #f5f0e6;
+  --color-paper-card: #fdfbf7;
+  --color-paper-subcard: #f8f3e8;
+  --color-paper-border: #e3d9c4;
+  --color-paper-border-strong: #d2c5ab;
+  --color-ink-primary: #26201a;
+  --color-ink-secondary: #6e6153;
+  --color-ink-muted: #968877;
+  --color-seal-vermilion: #b94222;
+  --color-seal-amber: #b45309;
+  --color-celadon-green: #24683a;
+}
+
+body {
+  background-color: #f5f0e6;
+  background-image: radial-gradient(#d8ccb4 0.65px, transparent 0.65px), radial-gradient(#e5dbc7 0.65px, #f5f0e6 0.65px);
+  background-size: 26px 26px;
+  background-position: 0 0, 13px 13px;
+  color: #26201a;
+  font-family: 'Noto Sans SC', 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Paper Deckle / Texture Custom Utilities */
+.paper-card {
+  background-color: #fdfbf7;
+  border: 1px solid #e3d9c4;
+  box-shadow: 0 2px 8px -2px rgba(65, 45, 20, 0.05), 0 1px 3px -1px rgba(65, 45, 20, 0.03);
+}
+
+.paper-card-subtle {
+  background-color: #f8f3e8;
+  border: 1px solid #e7ddca;
+}
+
+.paper-card-pressed {
+  background-color: #f3ece0;
+  border: 1px solid #ded3be;
+}
+
+/* Warm Sepia Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0eae0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cfc1aa;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b5a48b;
+}
