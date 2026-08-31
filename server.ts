@@ -64,10 +64,57 @@ const ANTHROPIC_PROVIDER_META: Record<
   },
 };
 
-function resolveAIConfig(): { provider: AIProvider; model: string; label: string } {
-  const explicit = process.env.AI_PROVIDER?.toLowerCase();
+function modelLabelFor(provider: AIProvider): { model: string; label: string } {
+  if (provider === "gemini") {
+    const model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
+    const label = model
+      .replace(/^gemini-/, "Gemini ")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return { model, label };
+  }
+  if (provider === "deepseek" || provider === "openai") {
+    const meta = COMPAT_PROVIDER_META[provider];
+    const model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
+    return { model, label: meta.label + (model ? ` ${model}` : "") };
+  }
+  const meta = ANTHROPIC_PROVIDER_META[provider as "minimax" | "anthropic"];
+  const model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
+  return { model, label: meta.label + (model ? ` ${model}` : "") };
+}
 
-  let provider: AIProvider;
+function detectProvider(): AIProvider {
+  const explicit = process.env.AI_PROVIDER?.toLowerCase();
+  if (
+    explicit === "gemini" ||
+    explicit === "deepseek" ||
+    explicit === "minimax" ||
+    explicit === "openai" ||
+    explicit === "anthropic"
+  ) {
+    return explicit as AIProvider;
+  }
+  // 自动策略：按已配置的 key 优先级选择
+  return process.env.MINIMAX_API_KEY
+    ? "minimax"
+    : process.env.DEEPSEEK_API_KEY
+      ? "deepseek"
+      : process.env.ANTHROPIC_API_KEY
+        ? "anthropic"
+        : process.env.OPENAI_API_KEY
+          ? "openai"
+          : "gemini";
+}
+
+function resolveAIConfig(): { provider: AIProvider; model: string; label: string } {
+  const provider = detectProvider();
+  return { provider, ...modelLabelFor(provider) };
+}
+
+/** 主引擎失败时的兜底引擎：默认 MiniMax（模型由 MINIMAX_MODEL 自行配置） */
+function resolveFallbackConfig(): { provider: AIProvider; model: string; label: string } | null {
+  const explicit = process.env.AI_FALLBACK_PROVIDER?.toLowerCase();
+  let provider: AIProvider | null = null;
   if (
     explicit === "gemini" ||
     explicit === "deepseek" ||
@@ -76,38 +123,11 @@ function resolveAIConfig(): { provider: AIProvider; model: string; label: string
     explicit === "anthropic"
   ) {
     provider = explicit as AIProvider;
-  } else {
-    // 自动策略：按已配置的 key 优先级选择
-    provider =
-      process.env.MINIMAX_API_KEY
-        ? "minimax"
-        : process.env.DEEPSEEK_API_KEY
-          ? "deepseek"
-          : process.env.ANTHROPIC_API_KEY
-            ? "anthropic"
-            : process.env.OPENAI_API_KEY
-              ? "openai"
-              : "gemini";
+  } else if (process.env.MINIMAX_API_KEY) {
+    provider = "minimax";
   }
-
-  let model: string;
-  let label: string;
-  if (provider === "gemini") {
-    model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
-    label = model
-      .replace(/^gemini-/, "Gemini ")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  } else if (provider === "deepseek" || provider === "openai") {
-    const meta = COMPAT_PROVIDER_META[provider];
-    model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
-    label = meta.label + (model ? ` ${model}` : "");
-  } else {
-    const meta = ANTHROPIC_PROVIDER_META[provider as "minimax" | "anthropic"];
-    model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
-    label = meta.label + (model ? ` ${model}` : "");
-  }
-  return { provider, model, label };
+  if (!provider || provider === AI_CONFIG.provider) return null;
+  return { provider, ...modelLabelFor(provider) };
 }
 
 const AI_CONFIG = resolveAIConfig();
@@ -298,21 +318,40 @@ async function generateWithAnthropic(
 
 // ---------- Unified dispatcher ----------
 
+async function generateWithProvider(
+  cfg: { provider: AIProvider; model: string },
+  opts: GenerateOptions
+): Promise<string> {
+  switch (cfg.provider) {
+    case "gemini":
+      return generateWithGemini(opts, cfg.model);
+    case "deepseek":
+    case "openai":
+      return generateWithOpenAICompatible(cfg.provider, opts, cfg.model);
+    case "minimax":
+    case "anthropic":
+      return generateWithAnthropic(cfg.provider, opts, cfg.model);
+    default:
+      throw new Error(`未知 AI 引擎: ${cfg.provider}`);
+  }
+}
+
 async function generateText(opts: GenerateOptions): Promise<string> {
   if (!opts.prompt && !opts.messages?.length) {
     throw new Error("generateText 需要 prompt 或 messages");
   }
-  switch (AI_CONFIG.provider) {
-    case "gemini":
-      return generateWithGemini(opts, AI_CONFIG.model);
-    case "deepseek":
-    case "openai":
-      return generateWithOpenAICompatible(AI_CONFIG.provider, opts, AI_CONFIG.model);
-    case "minimax":
-    case "anthropic":
-      return generateWithAnthropic(AI_CONFIG.provider, opts, AI_CONFIG.model);
-    default:
-      throw new Error(`未知 AI 引擎: ${AI_CONFIG.provider}`);
+
+  try {
+    return await generateWithProvider(AI_CONFIG, opts);
+  } catch (primaryError: any) {
+    const fallback = resolveFallbackConfig();
+    if (!fallback || fallback.provider === AI_CONFIG.provider) {
+      throw primaryError;
+    }
+    console.warn(
+      `[AI Fallback] 主引擎 ${AI_CONFIG.label} 调用失败（${primaryError?.message || primaryError}），切换到兜底引擎 ${fallback.label}`
+    );
+    return generateWithProvider(fallback, opts);
   }
 }
 
@@ -666,8 +705,12 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
   }
 
   app.listen(PORT, "0.0.0.0", () => {
+    const fallback = resolveFallbackConfig();
     console.log(`Server running on http://0.0.0.0:${PORT}`);
     console.log(`AI engine: ${AI_CONFIG.label} (${AI_CONFIG.provider}/${AI_CONFIG.model})`);
+    if (fallback) {
+      console.log(`AI fallback: ${fallback.label} (${fallback.provider}/${fallback.model})`);
+    }
   });
 }
 
