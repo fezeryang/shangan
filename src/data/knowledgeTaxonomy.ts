@@ -74,6 +74,20 @@ export const RAW_KNOWLEDGE_POINTS: TaxonomyKnowledgePoint[] = [
     subCategoryKeywords: ['细节判断', '细节理解', '正误排雷', '细节推断'],
   },
   {
+    id: 'v_logic_judgement',
+    category: 'verbal',
+    name: '逻辑判断与论证评价',
+    shortName: '逻辑判断',
+    categoryName: '言语理解与推理',
+    examWeight: '常考 (10%)',
+    description: '削弱/加强论证、前提假设与结论可靠性评价，识别论证漏洞。',
+    keyFormulaOrTip: '找论点→拆论据→断桥：削弱针对论证缺口，加强补齐前提链。',
+    baseAccuracy: 68,
+    prerequisites: ['v_detail_verify'],
+    nextSteps: [],
+    subCategoryKeywords: ['逻辑判断', '削弱论证', '加强论证', '前提假设', '论证评价', '质疑反驳'],
+  },
+  {
     id: 'v_sentence_order',
     category: 'verbal',
     name: '语句衔接与顺序排列',
@@ -426,12 +440,12 @@ export function findKnowledgePointForQuestion(q: Question): TaxonomyKnowledgePoi
     }
   }
 
-  // 2. Pattern dimension or patternRule text matching
-  if (q.patternDimension || q.patternRule) {
-    const textToCheck = `${q.patternDimension || ''} ${q.patternRule || ''} ${q.stem || ''}`;
+  // 2. Stem / explanation text matching (e.g. 图形题规律关键词)
+  {
+    const textToCheck = `${q.stem || ''}`;
     for (const point of categoryPool) {
       if (
-        point.subCategoryKeywords.some((kw) => textToCheck.includes(kw)) ||
+        point.subCategoryKeywords.some((kw) => kw.length >= 3 && textToCheck.includes(kw)) ||
         textToCheck.includes(point.shortName)
       ) {
         return point;
@@ -441,4 +455,62 @@ export function findKnowledgePointForQuestion(q: Question): TaxonomyKnowledgePoi
 
   // 3. Fallback to first in category
   return categoryPool[0] || RAW_KNOWLEDGE_POINTS[0];
+}
+
+// ===== 基于真实练习记录的考点统计（题库与作答数据驱动） =====
+import { UserAnswerRecord, StudyStats } from '../types';
+
+export interface PointStudyStats {
+  totalQuestions: number;
+  attemptedCount: number;
+  correctCount: number;
+  mistakesCount: number;
+  /** 做过至少一题时的正确率；null 表示尚未练习 */
+  accuracy: number | null;
+  status: 'mastered' | 'moderate' | 'weak' | 'unpracticed';
+}
+
+/** 考点在当前题库中对应的真实题目集合 */
+export function questionsForPoint(point: TaxonomyKnowledgePoint, allQuestions: Question[]): Question[] {
+  return allQuestions.filter(
+    (q) =>
+      q.category === point.category &&
+      (q.subCategory?.includes(point.shortName) ||
+        point.name.includes(q.subCategory || '') ||
+        point.subCategoryKeywords.some((kw) => q.subCategory?.includes(kw)))
+  );
+}
+
+/** 由题库 + 用户作答记录计算考点掌握情况（无作答时不虚构数据） */
+export function computePointStats(
+  point: TaxonomyKnowledgePoint,
+  allQuestions: Question[],
+  answerRecords: UserAnswerRecord[],
+  stats?: StudyStats
+): PointStudyStats {
+  const ids = new Set(questionsForPoint(point, allQuestions).map((q) => q.id));
+  const records = answerRecords.filter((r) => ids.has(r.questionId));
+  const attemptedCount = records.length;
+  const correctCount = records.filter((r) => r.isCorrect).length;
+  const mistakesCount = stats?.mistakeIds.filter((id) => ids.has(id)).length || 0;
+
+  if (attemptedCount === 0) {
+    return {
+      totalQuestions: ids.size,
+      attemptedCount: 0,
+      correctCount: 0,
+      mistakesCount,
+      accuracy: null,
+      status: 'unpracticed',
+    };
+  }
+  const accuracy = Math.round((correctCount / attemptedCount) * 100);
+  return {
+    totalQuestions: ids.size,
+    attemptedCount,
+    correctCount,
+    mistakesCount,
+    accuracy,
+    status: accuracy >= 80 ? 'mastered' : accuracy >= 65 ? 'moderate' : 'weak',
+  };
 }

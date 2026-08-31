@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Question, StudyStats, UserAnswerRecord } from '../types';
-import { GraphicViewer } from './GraphicViewer';
-import { DataAnalysisChart } from './DataAnalysisChart';
 import { QuestionKnowledgeModal } from './QuestionKnowledgeModal';
 import {
   Sparkles,
@@ -248,37 +246,36 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Main Question Content */}
       <div className="p-4 sm:p-6 space-y-4">
         {/* Stem Text */}
-        <div className="text-[#26201a] font-medium text-sm sm:text-base leading-relaxed tracking-wide">
+        <div className="text-[#26201a] font-medium text-sm sm:text-base leading-relaxed tracking-wide whitespace-pre-wrap">
           {question.stem}
         </div>
 
-        {/* If Data Analysis: Chart / Table view */}
-        {question.category === 'data' && question.chartData && (
-          <DataAnalysisChart
-            type={question.dataChartType || 'bar'}
-            title={question.chartTitle || '统计分析数据'}
-            data={question.chartData}
-            columns={question.chartColumns}
-          />
+        {/* 题面配图（PDF 原题图表/图形，选项按图中从上到下对应 A、B、C…） */}
+        {question.stemImages && question.stemImages.length > 0 && (
+          <div className="space-y-3">
+            {question.stemImages.map((src) => (
+              <div
+                key={src}
+                className="inline-block bg-white rounded-lg border border-[#e3d9c4] p-2 shadow-xs max-w-full"
+              >
+                <img
+                  src={src}
+                  alt="题目图表"
+                  className="max-w-full max-h-[420px] object-contain select-none"
+                  draggable={false}
+                />
+              </div>
+            ))}
+            {question.category === 'graphic' && (
+              <p className="text-xs text-[#8c7e6d]">
+                💡 图形题选项从上往下数，依次对应 A、B、C、D、E。
+              </p>
+            )}
+          </div>
         )}
 
-        {/* If Graphic Reasoning: High precision Graphic Elements & Options */}
-        {question.category === 'graphic' && (
-          <GraphicViewer
-            elements={question.graphicElements || []}
-            options={question.options}
-            selectedOption={activeOption || undefined}
-            onSelectOption={handleOptionClick}
-            showAnswerState={hasSubmitted}
-            correctAnswer={question.correctAnswer}
-            patternRule={hasSubmitted ? question.patternRule : undefined}
-            graphicType={question.graphicType}
-          />
-        )}
-
-        {/* Text Options (for Verbal, Data, or Graphic without SVG in options) */}
-        {(!question.options.some((o) => o.graphicSvg) || question.category !== 'graphic') && (
-          <div className="space-y-2.5 pt-2">
+        {/* Options */}
+        <div className="space-y-2.5 pt-2">
             {question.options.map((opt) => {
               const isSelected = activeOption === opt.key;
               const isCorrectOpt = question.correctAnswer === opt.key;
@@ -340,8 +337,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </button>
               );
             })}
-          </div>
-        )}
+        </div>
 
         {/* Action Bar: Submit & Check / Retry */}
         {!hasSubmitted ? (
@@ -436,11 +432,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   </span>
                 )}
               </div>
-              {question.patternRule && (
-                <span className="text-xs bg-[#fdf6e6] text-[#854d0e] px-2 py-0.5 rounded border border-[#ebdcb9]">
-                  {question.patternRule}
-                </span>
-              )}
             </div>
 
             {/* Step-by-step logic breakdown */}
@@ -448,14 +439,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               <div className="font-semibold text-[#26201a]">【解题逻辑剖析】：</div>
               <p className="text-[#4a3e31] leading-relaxed whitespace-pre-wrap">{question.explanation}</p>
             </div>
-
-            {/* Teacher's Master Skill Tip */}
-            {question.skillTip && (
-              <div className="p-3 bg-[#fff8eb] rounded-lg border border-[#f0d8a8] text-[#78350f] text-xs">
-                <span className="font-semibold text-[#92400e]">💡 名师破题锦囊 (秒杀技巧)：</span>
-                <div className="mt-1 leading-relaxed">{question.skillTip}</div>
-              </div>
-            )}
           </div>
         )}
       </div>

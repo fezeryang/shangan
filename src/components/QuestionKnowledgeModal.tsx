@@ -6,6 +6,7 @@ import {
   RAW_KNOWLEDGE_POINTS,
   EXTRA_RELATIONS,
   findKnowledgePointForQuestion,
+  computePointStats,
 } from '../data/knowledgeTaxonomy';
 import {
   Network,
@@ -46,7 +47,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   attemptedCount: number;
   correctCount: number;
   mistakesCount: number;
-  status: 'mastered' | 'moderate' | 'weak';
+  status: 'mastered' | 'moderate' | 'weak' | 'unpracticed';
   description: string;
   examWeight: string;
   keyFormulaOrTip: string;
@@ -81,44 +82,80 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
     setActiveNodeId(targetPoint.id);
   }, [targetPoint.id, question.id]);
 
-  // Compute node mastery metrics
+  // Compute node mastery metrics（完全由题库与真实作答记录计算，无作答时标为未练习）
   const activePointInfo = useMemo(() => {
     const found = RAW_KNOWLEDGE_POINTS.find((p) => p.id === activeNodeId) || targetPoint;
-    const matchingQuestions = allQuestions.filter(
-      (q) =>
-        q.category === found.category &&
-        (q.subCategory?.includes(found.shortName) ||
-          found.name.includes(q.subCategory || '') ||
-          found.subCategoryKeywords.some((kw) => q.subCategory?.includes(kw)))
-    );
-    const qIds = new Set(matchingQuestions.map((q) => q.id));
-    const records = answerRecords.filter((r) => qIds.has(r.questionId));
-    const mistakesCount = stats?.mistakeIds.filter((id) => qIds.has(id)).length || 0;
-    const attemptedCount = records.length;
-    const correctCount = records.filter((r) => r.isCorrect).length;
-
-    let score = found.baseAccuracy;
-    if (attemptedCount > 0) {
-      const userAcc = Math.round((correctCount / attemptedCount) * 100);
-      score = Math.round(userAcc * 0.8 + found.baseAccuracy * 0.2);
-    }
-    if (mistakesCount > 0) {
-      score = Math.max(25, score - mistakesCount * 12);
-    }
-
-    const status: 'mastered' | 'moderate' | 'weak' =
-      score >= 80 ? 'mastered' : score >= 65 ? 'moderate' : 'weak';
+    const ps = computePointStats(found, allQuestions, answerRecords, stats);
 
     return {
       point: found,
-      masteryScore: score,
+      masteryScore: ps.accuracy ?? 0,
+      attemptedCount: ps.attemptedCount,
+      correctCount: ps.correctCount,
+      mistakesCount: ps.mistakesCount,
+      status: ps.status,
+      questionCount: ps.totalQuestions,
+    };
+  }, [activeNodeId, targetPoint, answerRecords, stats]);
+
+  // 构建单考点图节点（真实统计）
+  const buildTopicNode = (
+    point: (typeof RAW_KNOWLEDGE_POINTS)[number],
+    opts: { isTarget?: boolean; isPrerequisite?: boolean; isNextStep?: boolean; radius?: number }
+  ): GraphNode => {
+    const ps = computePointStats(point, allQuestions, answerRecords, stats);
+    return {
+      id: point.id,
+      name: point.name,
+      shortName: point.shortName,
+      category: point.category,
+      categoryName: point.categoryName,
+      type: 'topic',
+      isTarget: opts.isTarget,
+      isPrerequisite: opts.isPrerequisite,
+      isNextStep: opts.isNextStep,
+      masteryScore: ps.accuracy ?? 0,
+      totalQuestions: ps.totalQuestions,
+      attemptedCount: ps.attemptedCount,
+      correctCount: ps.correctCount,
+      mistakesCount: ps.mistakesCount,
+      status: ps.status,
+      description: point.description,
+      examWeight: point.examWeight,
+      keyFormulaOrTip: point.keyFormulaOrTip,
+      radius: opts.radius ?? 18,
+    };
+  };
+
+  // 构建模块节点（真实统计：题库题量 + 该模块作答正确率）
+  const buildCategoryNode = (category: 'verbal' | 'data' | 'graphic', name: string): GraphNode => {
+    const catQuestions = allQuestions.filter((q) => q.category === category);
+    const ids = new Set(catQuestions.map((q) => q.id));
+    const records = answerRecords.filter((r) => ids.has(r.questionId));
+    const attemptedCount = records.length;
+    const correctCount = records.filter((r) => r.isCorrect).length;
+    const acc = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : null;
+    const mistakesCount = stats?.mistakeIds.filter((id) => ids.has(id)).length || 0;
+    return {
+      id: `cat_${category}`,
+      name,
+      shortName: name.slice(0, 4),
+      category,
+      categoryName: name,
+      type: 'category',
+      masteryScore: acc ?? 0,
+      totalQuestions: catQuestions.length,
       attemptedCount,
       correctCount,
       mistakesCount,
-      status,
-      questionCount: Math.max(matchingQuestions.length, 1),
+      status:
+        acc === null ? 'unpracticed' : acc >= 80 ? 'mastered' : acc >= 65 ? 'moderate' : 'weak',
+      description: `北森测评 ${name} 核心能力体系（题库真题 ${catQuestions.length} 道）`,
+      examWeight: '模块核心',
+      keyFormulaOrTip: '系统掌握基础模型与速算解题策略。',
+      radius: 30,
     };
-  }, [activeNodeId, targetPoint, answerRecords, stats]);
+  };
 
   // Build Graph Data
   const { nodes, links } = useMemo(() => {
@@ -127,70 +164,18 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       const nodesMap = new Map<string, GraphNode>();
 
       // 1. Target node
-      nodesMap.set(targetPoint.id, {
-        id: targetPoint.id,
-        name: targetPoint.name,
-        shortName: targetPoint.shortName,
-        category: targetPoint.category,
-        categoryName: targetPoint.categoryName,
-        type: 'topic',
-        isTarget: true,
-        masteryScore: targetPoint.baseAccuracy,
-        totalQuestions: 5,
-        attemptedCount: 0,
-        correctCount: 0,
-        mistakesCount: 0,
-        status: 'moderate',
-        description: targetPoint.description,
-        examWeight: targetPoint.examWeight,
-        keyFormulaOrTip: targetPoint.keyFormulaOrTip,
-        radius: 34,
-      });
+      nodesMap.set(targetPoint.id, buildTopicNode(targetPoint, { isTarget: true, radius: 34 }));
 
       // 2. Category Hub
-      const catId = `cat_${targetPoint.category}`;
-      nodesMap.set(catId, {
-        id: catId,
-        name: targetPoint.categoryName,
-        shortName: targetPoint.categoryName.slice(0, 4),
-        category: targetPoint.category,
-        categoryName: targetPoint.categoryName,
-        type: 'category',
-        masteryScore: 78,
-        totalQuestions: 30,
-        attemptedCount: 0,
-        correctCount: 0,
-        mistakesCount: 0,
-        status: 'moderate',
-        description: `北森测评 ${targetPoint.categoryName} 核心能力体系`,
-        examWeight: '模块核心',
-        keyFormulaOrTip: '系统掌握基础模型与速算解题策略。',
-        radius: 30,
-      });
+      const catNode = buildCategoryNode(targetPoint.category, targetPoint.categoryName);
+      nodesMap.set(catNode.id, catNode);
+      const catId = catNode.id;
 
       // 3. Prerequisites
       targetPoint.prerequisites.forEach((preId) => {
         const pre = RAW_KNOWLEDGE_POINTS.find((p) => p.id === preId);
         if (pre) {
-          nodesMap.set(pre.id, {
-            id: pre.id,
-            name: pre.name,
-            shortName: pre.shortName,
-            category: pre.category,
-            categoryName: pre.categoryName,
-            type: 'topic',
-            isPrerequisite: true,
-            masteryScore: pre.baseAccuracy,
-            totalQuestions: 4,
-            attemptedCount: 0,
-            correctCount: 0,
-            mistakesCount: 0,
-            status: 'moderate',
-            description: pre.description,
-            examWeight: pre.examWeight,
-            keyFormulaOrTip: pre.keyFormulaOrTip,
-            radius: 24,
-          });
+          nodesMap.set(pre.id, buildTopicNode(pre, { isPrerequisite: true, radius: 24 }));
         }
       });
 
@@ -201,25 +186,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       Array.from(new Set(downstream)).forEach((nextId) => {
         const next = RAW_KNOWLEDGE_POINTS.find((p) => p.id === nextId);
         if (next) {
-          nodesMap.set(next.id, {
-            id: next.id,
-            name: next.name,
-            shortName: next.shortName,
-            category: next.category,
-            categoryName: next.categoryName,
-            type: 'topic',
-            isNextStep: true,
-            masteryScore: next.baseAccuracy,
-            totalQuestions: 4,
-            attemptedCount: 0,
-            correctCount: 0,
-            mistakesCount: 0,
-            status: 'moderate',
-            description: next.description,
-            examWeight: next.examWeight,
-            keyFormulaOrTip: next.keyFormulaOrTip,
-            radius: 24,
-          });
+          nodesMap.set(next.id, buildTopicNode(next, { isNextStep: true, radius: 24 }));
         }
       });
 
@@ -229,24 +196,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           const otherId = rel.source === targetPoint.id ? rel.target : rel.source;
           const other = RAW_KNOWLEDGE_POINTS.find((p) => p.id === otherId);
           if (other && !nodesMap.has(other.id)) {
-            nodesMap.set(other.id, {
-              id: other.id,
-              name: other.name,
-              shortName: other.shortName,
-              category: other.category,
-              categoryName: other.categoryName,
-              type: 'topic',
-              masteryScore: other.baseAccuracy,
-              totalQuestions: 3,
-              attemptedCount: 0,
-              correctCount: 0,
-              mistakesCount: 0,
-              status: 'moderate',
-              description: other.description,
-              examWeight: other.examWeight,
-              keyFormulaOrTip: other.keyFormulaOrTip,
-              radius: 22,
-            });
+            nodesMap.set(other.id, buildTopicNode(other, { radius: 22 }));
           }
         }
       });
@@ -299,7 +249,11 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
 
       return { nodes: Array.from(nodesMap.values()), links: linkList };
     } else {
-      // Global View
+      // Global View（真实题库统计 + 作答记录驱动）
+      const totalAcc =
+        stats?.totalAnswered && stats.totalAnswered > 0
+          ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
+          : null;
       const rootNode: GraphNode = {
         id: 'root_hub',
         name: '北森测评能力全景',
@@ -307,12 +261,19 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
         category: 'root',
         categoryName: '全科综合',
         type: 'root',
-        masteryScore: 75,
+        masteryScore: totalAcc ?? 0,
         totalQuestions: allQuestions.length,
-        attemptedCount: 0,
-        correctCount: 0,
-        mistakesCount: 0,
-        status: 'mastered',
+        attemptedCount: stats?.totalAnswered || 0,
+        correctCount: stats?.totalCorrect || 0,
+        mistakesCount: stats?.mistakeIds.length || 0,
+        status:
+          totalAcc === null
+            ? 'unpracticed'
+            : totalAcc >= 80
+            ? 'mastered'
+            : totalAcc >= 65
+            ? 'moderate'
+            : 'weak',
         description: '北森核心测评三大模块知识图谱体系',
         examWeight: '全科 100%',
         keyFormulaOrTip: '全科协同，掌握核心题型规律。',
@@ -320,81 +281,14 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       };
 
       const catNodes: GraphNode[] = [
-        {
-          id: 'cat_verbal',
-          name: '言语理解与推理',
-          shortName: '言语推理',
-          category: 'verbal',
-          categoryName: '言语理解与推理',
-          type: 'category',
-          masteryScore: 78,
-          totalQuestions: 30,
-          attemptedCount: 0,
-          correctCount: 0,
-          mistakesCount: 0,
-          status: 'moderate',
-          description: '言语理解核心题型体系',
-          examWeight: '占比 35%',
-          keyFormulaOrTip: '抓转折抓中心句。',
-          radius: 26,
-        },
-        {
-          id: 'cat_data',
-          name: '资料分析与计算',
-          shortName: '资料分析',
-          category: 'data',
-          categoryName: '资料分析与计算',
-          type: 'category',
-          masteryScore: 72,
-          totalQuestions: 30,
-          attemptedCount: 0,
-          correctCount: 0,
-          mistakesCount: 0,
-          status: 'moderate',
-          description: '资料分析速算与图表模型',
-          examWeight: '占比 35%',
-          keyFormulaOrTip: '百化分代入 n+1 秒杀。',
-          radius: 26,
-        },
-        {
-          id: 'cat_graphic',
-          name: '图形推理空间思维',
-          shortName: '图形推理',
-          category: 'graphic',
-          categoryName: '图形推理空间思维',
-          type: 'category',
-          masteryScore: 68,
-          totalQuestions: 30,
-          attemptedCount: 0,
-          correctCount: 0,
-          mistakesCount: 0,
-          status: 'moderate',
-          description: '图形推理空间拓扑与变化规律',
-          examWeight: '占比 30%',
-          keyFormulaOrTip: '同消异存，定位特征基准。',
-          radius: 26,
-        },
+        buildCategoryNode('verbal', '言语理解与推理'),
+        buildCategoryNode('data', '资料分析与计算'),
+        buildCategoryNode('graphic', '图形推理空间思维'),
       ];
 
-      const topicNodes: GraphNode[] = RAW_KNOWLEDGE_POINTS.map((item) => ({
-        id: item.id,
-        name: item.name,
-        shortName: item.shortName,
-        category: item.category,
-        categoryName: item.categoryName,
-        type: 'topic',
-        isTarget: item.id === targetPoint.id,
-        masteryScore: item.baseAccuracy,
-        totalQuestions: 4,
-        attemptedCount: 0,
-        correctCount: 0,
-        mistakesCount: 0,
-        status: 'moderate',
-        description: item.description,
-        examWeight: item.examWeight,
-        keyFormulaOrTip: item.keyFormulaOrTip,
-        radius: item.id === targetPoint.id ? 28 : 18,
-      }));
+      const topicNodes: GraphNode[] = RAW_KNOWLEDGE_POINTS.map((item) =>
+        buildTopicNode(item, { isTarget: item.id === targetPoint.id, radius: item.id === targetPoint.id ? 28 : 18 })
+      );
 
       const linkList: GraphLink[] = [
         { source: 'root_hub', target: 'cat_verbal', type: 'hierarchy' },
@@ -881,19 +775,27 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               {/* Mastery Gauge */}
               <div className="flex items-center gap-3 bg-[#fffdfa] px-3.5 py-1.5 rounded-xl border border-[#ebdcb9] shadow-2xs">
                 <div className="text-right">
-                  <div className="text-[11px] text-[#786c5e]">个人掌握度估算</div>
+                  <div className="text-[11px] text-[#786c5e]">个人掌握度（基于真实作答）</div>
                   <div className="text-sm font-extrabold text-[#26201a]">
-                    {activePointInfo.masteryScore}%{' '}
+                    {activePointInfo.status === 'unpracticed' ? '未练习' : `${activePointInfo.masteryScore}%`}{' '}
                     <span
                       className={`text-xs font-semibold ${
                         activePointInfo.status === 'mastered'
                           ? 'text-[#15803d]'
                           : activePointInfo.status === 'moderate'
                           ? 'text-[#b45309]'
+                          : activePointInfo.status === 'unpracticed'
+                          ? 'text-[#94a3b8]'
                           : 'text-[#b91c1c]'
                       }`}
                     >
-                      ({activePointInfo.status === 'mastered' ? '熟练' : activePointInfo.status === 'moderate' ? '良好' : '薄弱'})
+                      ({activePointInfo.status === 'mastered'
+                        ? '熟练'
+                        : activePointInfo.status === 'moderate'
+                        ? '良好'
+                        : activePointInfo.status === 'unpracticed'
+                        ? '待练习'
+                        : '薄弱'})
                     </span>
                   </div>
                 </div>
@@ -904,9 +806,11 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                         ? 'bg-[#15803d]'
                         : activePointInfo.status === 'moderate'
                         ? 'bg-[#b45309]'
+                        : activePointInfo.status === 'unpracticed'
+                        ? 'bg-[#cbd5e1]'
                         : 'bg-[#b91c1c]'
                     }`}
-                    style={{ width: `${activePointInfo.masteryScore}%` }}
+                    style={{ width: `${activePointInfo.status === 'unpracticed' ? 0 : activePointInfo.masteryScore}%` }}
                   />
                 </div>
               </div>
@@ -957,7 +861,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               </div>
 
               {/* Action Button: Jump to practice this subcategory */}
-              {onNavigateToSubCategory && (
+              {onNavigateToSubCategory && activePointInfo.questionCount > 0 && (
                 <button
                   onClick={() => {
                     onNavigateToSubCategory(activePointInfo.point.category, activePointInfo.point.shortName);
@@ -976,7 +880,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
         {/* Modal Bottom Bar */}
         <div className="bg-[#f7f2e5] border-t border-[#e3d9c4] px-5 py-3 flex items-center justify-between text-xs">
           <div className="text-[#786c5e]">
-            已收录北森全科知识图谱核心考点 23 项 · 覆盖真题 {allQuestions.length} 道
+            已收录北森全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 · 覆盖真题 {allQuestions.length} 道
           </div>
           <button
             onClick={onClose}

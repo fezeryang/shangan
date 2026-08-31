@@ -218,7 +218,7 @@ ${userNote ? `用户疑问/笔记：${userNote}` : ""}
   // AI Graphic Reasoning Specialized Visual Pattern Analysis
   app.post("/api/ai/graphic-pattern", async (req, res) => {
     try {
-      const { question, patternType } = req.body;
+      const { question } = req.body;
       if (!question) {
         return res.status(400).json({ error: "缺少图推题目信息" });
       }
@@ -226,7 +226,6 @@ ${userNote ? `用户疑问/笔记：${userNote}` : ""}
       const prompt = `你是一位专注于图形推理（图推）的资深教练。针对以下图形推理题，请提供一套系统化的“视觉解构与规律提炼”。
 
 题型归类：${question.category} - ${question.subCategory}
-规律机制：${patternType || question.patternRule || "位置变换/叠加相消/属性规律/数量关系"}
 题干描述与解析背景：
 ${question.stem}
 ${question.explanation ? `标准解析参考: ${question.explanation}` : ""}
@@ -284,8 +283,7 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
     { "key": "D", "content": "选项D内容" }
   ],
   "correctAnswer": "A或B或C或D",
-  "explanation": "清晰严谨的详细推导解析与秒杀技巧",
-  "skillTip": "针对该考点的一句话核心心得"
+  "explanation": "清晰严谨的详细推导解析与秒杀技巧"
 }`;
 
       const text = await generateText({

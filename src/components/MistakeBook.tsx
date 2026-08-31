@@ -83,7 +83,6 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
         category: q.categoryName,
         userAnswer: answeredMap[q.id] || '未作答',
         correctAnswer: q.correctAnswer,
-        patternRule: q.patternRule,
       }));
 
       const catAccuracy = (key: string) => {

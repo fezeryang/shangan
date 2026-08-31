@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { StudyStats, UserAnswerRecord } from '../types';
 import { allQuestions } from '../data/allQuestions';
-import { RAW_KNOWLEDGE_POINTS, EXTRA_RELATIONS } from '../data/knowledgeTaxonomy';
+import { RAW_KNOWLEDGE_POINTS, EXTRA_RELATIONS, computePointStats } from '../data/knowledgeTaxonomy';
 import {
   Brain,
   Sparkles,
@@ -31,7 +31,7 @@ interface KnowledgeNode extends d3.SimulationNodeDatum {
   attemptedCount: number;
   correctCount: number;
   mistakesCount: number;
-  status: 'mastered' | 'moderate' | 'weak';
+  status: 'mastered' | 'moderate' | 'weak' | 'unpracticed';
   description: string;
   examWeight: string; // e.g. "必考 15%"
   keyFormulaOrTip: string;
@@ -70,7 +70,11 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   // Compute live mastery data for all nodes
   const nodesData: KnowledgeNode[] = useMemo(() => {
-    // 1. Root Node
+    // 1. Root Node（真实作答数据驱动，未练习时不虚构分数）
+    const totalAcc =
+      stats.totalAnswered > 0
+        ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
+        : null;
     const rootNode: KnowledgeNode = {
       id: 'root_hub',
       name: '北森核心测评能力全景',
@@ -78,14 +82,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       category: 'root',
       categoryName: '全科综合',
       type: 'root',
-      masteryScore: stats.totalAnswered > 0
-        ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
-        : 72,
+      masteryScore: totalAcc ?? 0,
       totalQuestions: allQuestions.length,
       attemptedCount: stats.totalAnswered,
       correctCount: stats.totalCorrect,
       mistakesCount: stats.mistakeIds.length,
-      status: stats.totalAnswered > 0 && stats.totalCorrect / stats.totalAnswered >= 0.8 ? 'mastered' : 'moderate',
+      status:
+        totalAcc === null
+          ? 'unpracticed'
+          : totalAcc >= 80
+          ? 'mastered'
+          : totalAcc >= 65
+          ? 'moderate'
+          : 'weak',
       description: '北森测评言语理解、资料分析与复杂图形推理核心知识图谱。',
       examWeight: '总分 100%',
       keyFormulaOrTip: '三科均衡发展，突破图推重叠相消与资料百化分秒杀。',
@@ -133,7 +142,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       });
       const attCount = records.length;
       const corCount = records.filter((r) => r.isCorrect).length;
-      const calculatedAcc = attCount > 0 ? Math.round((corCount / attCount) * 100) : 75;
+      const catAcc = attCount > 0 ? Math.round((corCount / attCount) * 100) : null;
 
       const catMistakes = stats.mistakeIds.filter((id) => {
         const q = allQuestions.find((item) => item.id === id);
@@ -147,12 +156,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         category: cat.category,
         categoryName: cat.categoryName,
         type: 'category',
-        masteryScore: calculatedAcc,
+        masteryScore: catAcc ?? 0,
         totalQuestions: allQuestions.filter((q) => q.category === cat.category).length,
         attemptedCount: attCount,
         correctCount: corCount,
         mistakesCount: catMistakes,
-        status: calculatedAcc >= 80 ? 'mastered' : calculatedAcc >= 65 ? 'moderate' : 'weak',
+        status:
+          catAcc === null
+            ? 'unpracticed'
+            : catAcc >= 80
+            ? 'mastered'
+            : catAcc >= 65
+            ? 'moderate'
+            : 'weak',
         description: cat.desc,
         examWeight: cat.examWeight,
         keyFormulaOrTip: cat.tip,
@@ -160,34 +176,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       };
     });
 
-    // 3. Topic Sub-nodes
+    // 3. Topic Sub-nodes（真实作答记录驱动）
     const topicNodes: KnowledgeNode[] = RAW_KNOWLEDGE_POINTS.map((item) => {
-      // Find matching questions in question bank by subCategory or category
-      const matchedQuestions = allQuestions.filter(
-        (q) =>
-          q.category === item.category &&
-          (q.subCategory?.includes(item.shortName) ||
-            item.name.includes(q.subCategory || '') ||
-            q.patternDimension?.includes(item.shortName))
-      );
-
-      const matchedIds = new Set(matchedQuestions.map((q) => q.id));
-      const records = answerRecords.filter((r) => matchedIds.has(r.questionId));
-      const mistakesCount = stats.mistakeIds.filter((id) => matchedIds.has(id)).length;
-
-      let mastery = item.baseAccuracy;
-      if (records.length > 0) {
-        const correct = records.filter((r) => r.isCorrect).length;
-        const userAcc = Math.round((correct / records.length) * 100);
-        mastery = Math.round(userAcc * 0.8 + item.baseAccuracy * 0.2);
-      }
-      if (mistakesCount > 0) {
-        mastery = Math.max(30, mastery - mistakesCount * 12);
-      }
-
-      const status: 'mastered' | 'moderate' | 'weak' =
-        mastery >= 80 ? 'mastered' : mastery >= 65 ? 'moderate' : 'weak';
-
+      const ps = computePointStats(item, allQuestions, answerRecords, stats);
       return {
         id: item.id,
         name: item.name,
@@ -195,17 +186,17 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         category: item.category as any,
         categoryName: item.categoryName,
         type: 'topic',
-        masteryScore: mastery,
-        totalQuestions: Math.max(matchedQuestions.length, 3),
-        attemptedCount: records.length,
-        correctCount: records.filter((r) => r.isCorrect).length,
-        mistakesCount,
-        status,
+        masteryScore: ps.accuracy ?? 0,
+        totalQuestions: ps.totalQuestions,
+        attemptedCount: ps.attemptedCount,
+        correctCount: ps.correctCount,
+        mistakesCount: ps.mistakesCount,
+        status: ps.status,
         description: item.description,
         examWeight: item.examWeight,
         keyFormulaOrTip: item.keyFormulaOrTip,
         prerequisites: item.prerequisites,
-        radius: status === 'weak' ? 22 : 18,
+        radius: ps.status === 'weak' ? 22 : 18,
       };
     });
 
@@ -285,10 +276,11 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const totalTopicsCount = nodesData.filter((n) => n.type === 'topic').length;
   const masteredCount = nodesData.filter((n) => n.type === 'topic' && n.status === 'mastered').length;
   const weakCount = nodesData.filter((n) => n.type === 'topic' && n.status === 'weak').length;
-  const avgMastery = Math.round(
-    nodesData.filter((n) => n.type === 'topic').reduce((acc, n) => acc + n.masteryScore, 0) /
-      Math.max(1, totalTopicsCount)
-  );
+  const practicedTopics = nodesData.filter((n) => n.type === 'topic' && n.attemptedCount > 0);
+  const avgMastery =
+    practicedTopics.length > 0
+      ? Math.round(practicedTopics.reduce((acc, n) => acc + n.masteryScore, 0) / practicedTopics.length)
+      : null;
 
   // Set default selected node
   useEffect(() => {
@@ -524,6 +516,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         }
         if (d.status === 'mastered') return '#ecfdf5'; // Emerald bg
         if (d.status === 'weak') return '#fff1f2'; // Rose bg
+        if (d.status === 'unpracticed') return '#f8fafc'; // Untested neutral bg
         return '#f8fafc'; // Neutral bg
       })
       .attr('stroke', (d) => {
@@ -531,6 +524,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         if (d.type === 'category') return '#ffffff';
         if (d.status === 'mastered') return '#10b981';
         if (d.status === 'weak') return '#f43f5e';
+        if (d.status === 'unpracticed') return '#cbd5e1';
         return '#64748b';
       })
       .attr('stroke-width', (d) => (d.type === 'root' ? 3.5 : d.type === 'category' ? 3 : 2))
@@ -542,7 +536,15 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       .append('circle')
       .attr('r', (d) => (d.radius || 20) - 3)
       .attr('fill', 'none')
-      .attr('stroke', (d) => (d.status === 'mastered' ? '#34d399' : d.status === 'weak' ? '#fb7185' : '#818cf8'))
+      .attr('stroke', (d) =>
+        d.status === 'mastered'
+          ? '#34d399'
+          : d.status === 'weak'
+          ? '#fb7185'
+          : d.status === 'unpracticed'
+          ? '#cbd5e1'
+          : '#818cf8'
+      )
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', (d) => {
         const circum = 2 * Math.PI * ((d.radius || 20) - 3);
@@ -563,6 +565,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         if (d.type === 'root' || d.type === 'category') return '#ffffff';
         if (d.status === 'weak') return '#be123c';
         if (d.status === 'mastered') return '#065f46';
+        if (d.status === 'unpracticed') return '#94a3b8';
         return '#334155';
       })
       .attr('pointer-events', 'none');
@@ -571,12 +574,20 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     node
       .filter((d) => d.type === 'topic')
       .append('text')
-      .text((d) => `${d.masteryScore}%`)
+      .text((d) => (d.status === 'unpracticed' ? '未练' : `${d.masteryScore}%`))
       .attr('text-anchor', 'middle')
       .attr('dy', '1.15em')
       .attr('font-size', '8px')
       .attr('font-weight', '600')
-      .attr('fill', (d) => (d.status === 'weak' ? '#e11d48' : d.status === 'mastered' ? '#059669' : '#64748b'))
+      .attr('fill', (d) =>
+        d.status === 'weak'
+          ? '#e11d48'
+          : d.status === 'mastered'
+          ? '#059669'
+          : d.status === 'unpracticed'
+          ? '#94a3b8'
+          : '#64748b'
+      )
       .attr('pointer-events', 'none');
 
     // Warning Badge Icon on top-right of weak nodes
@@ -724,7 +735,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           <div className="px-3 py-1.5 bg-[#fef7ea] rounded-xl border border-[#ebdcb9] flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-[#b45309]" />
             <span className="text-[#78350f]">全图掌握指数:</span>
-            <strong className="text-[#854d0e]">{avgMastery}%</strong>
+            <strong className="text-[#854d0e]">{avgMastery === null ? '—' : `${avgMastery}%`}</strong>
           </div>
 
           {isFullscreen && (
@@ -867,10 +878,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
                       ? 'bg-[#edf7ee] border-[#bbf7d0] text-[#15803d]'
                       : selectedNode.status === 'weak'
                       ? 'bg-[#fef2f2] border-[#fecaca] text-[#b91c1c]'
+                      : selectedNode.status === 'unpracticed'
+                      ? 'bg-[#f8fafc] border-[#e2e8f0] text-[#94a3b8]'
                       : 'bg-[#fef7ea] border-[#ebdcb9] text-[#854d0e]'
                   }`}
                 >
-                  <span className="text-sm font-extrabold">{selectedNode.masteryScore}%</span>
+                  <span className="text-sm font-extrabold">
+                    {selectedNode.status === 'unpracticed' ? '—' : `${selectedNode.masteryScore}%`}
+                  </span>
                   <span className="text-[8px] font-normal text-[#8c7e6d]">掌握度</span>
                 </div>
               </div>

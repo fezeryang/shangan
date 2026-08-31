@@ -118,7 +118,6 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
-          patternType: question.patternRule,
         }),
       });
       const data = await res.json();
@@ -329,7 +328,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
               ) : graphicAnalysis ? (
                 <div className="space-y-3">
                   <div className="p-3 bg-[#fef7ea] rounded-xl border border-[#ebdcb9] text-[#78350f] text-xs font-medium">
-                    🎨 复杂图推规律维度：{question?.patternDimension || '综合几何规律'}
+                    🎨 图形推理考点：{question?.subCategory || '综合几何规律'}
                   </div>
                   <div className="bg-[#f8f3e8] p-4 rounded-xl border border-[#e3d8c2]">
                     <MarkdownRenderer content={graphicAnalysis} />
@@ -418,11 +417,6 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                         <span>正确答案：{variantQuestion.correctAnswer}</span>
                       </div>
                       <MarkdownRenderer content={variantQuestion.explanation || ''} />
-                      {variantQuestion.skillTip && (
-                        <div className="text-[11px] bg-[#fff8eb] text-[#78350f] p-2.5 rounded-lg border border-[#ebdcb9] mt-2">
-                          💡 <strong>核心技能点拨：</strong>{variantQuestion.skillTip}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
