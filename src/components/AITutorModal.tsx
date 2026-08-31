@@ -355,7 +355,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-[#fdfbf7] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl border border-[#e3d9c4] overflow-hidden animate-in fade-in zoom-in duration-200"
+        className={`bg-[#fdfbf7] rounded-2xl w-full ${
+          activeTab === 'variant' ? 'max-w-5xl' : 'max-w-3xl'
+        } max-h-[92vh] flex flex-col shadow-2xl border border-[#e3d9c4] overflow-hidden animate-in fade-in zoom-in duration-200`}
         onClick={(e) => e.stopPropagation()}
         style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}
       >
@@ -561,7 +563,13 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                   {/* 资料分析变式：AI 生成的统计图/数据表，数据直接可读 */}
                   {variantQuestion.chart && <VariantChart chart={variantQuestion.chart} />}
 
-                  <div className="space-y-2">
+                  <div
+                    className={
+                      variantQuestion.options?.some((o: any) => o.svg)
+                        ? 'grid grid-cols-2 lg:grid-cols-4 gap-2'
+                        : 'space-y-2'
+                    }
+                  >
                     {variantQuestion.options?.map((opt: any) => {
                       const isSelected = variantSelected === opt.key;
                       const isCorrect = variantQuestion.correctAnswer === opt.key;
@@ -587,18 +595,20 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                               setShowVariantAnswer(true);
                             }
                           }}
-                          className={`w-full text-left p-3 rounded-lg border flex items-start gap-2.5 text-xs transition-all cursor-pointer ${btnStyle}`}
+                          className={`w-full text-left p-3 rounded-lg border flex ${
+                            opt.svg ? 'flex-col items-stretch gap-2' : 'items-start gap-2.5'
+                          } text-xs transition-all cursor-pointer ${btnStyle}`}
                         >
                           <span className="w-5 h-5 rounded-full bg-[#f3ead7] flex items-center justify-center font-bold text-[#4a3e31] shrink-0">
                             {opt.key}
                           </span>
                           {opt.svg ? (
-                            <span className="flex-1 flex flex-col gap-1 min-w-0">
+                            <span className="w-full flex flex-col gap-1 min-w-0">
                               <span
-                                className="w-full min-h-16 flex items-center justify-center bg-white rounded-md border border-[#e8ded0] p-1"
+                                className="w-full min-h-20 max-h-32 flex items-center justify-center bg-white rounded-md border border-[#e8ded0] p-1"
                                 dangerouslySetInnerHTML={{ __html: opt.svg }}
                               />
-                              {opt.content && <span className="text-[11px] text-[#786c5e]">{opt.content}</span>}
+                              {opt.content && <span className="text-[11px] text-[#786c5e] leading-snug">{opt.content}</span>}
                             </span>
                           ) : (
                             <span className="flex-1">{opt.content}</span>
