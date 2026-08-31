@@ -30,10 +30,9 @@ interface HourlyData {
   accuracy: number;
   avgTimeSec: number;
   productivityScore: number;
-  errorRisk: 'low' | 'medium' | 'high';
+  errorRisk: 'low' | 'medium' | 'high' | null;
   recommendedTasks: string;
-  isPeak: boolean;
-  isTrough: boolean;
+  hasData: boolean;
 }
 
 interface WeekMatrixCell {
@@ -125,22 +124,19 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
       const bucket = hourBuckets[hour];
       const hasRealData = bucket.total > 0;
 
-      const rawAccuracy = hasRealData
-        ? Math.round((bucket.correct / bucket.total) * 100)
-        : cfg.defaultAccuracy;
-
-      const avgTime = hasRealData ? Math.round(bucket.totalTime / bucket.total) : 38;
-      const speedScore = Math.max(20, Math.min(100, 110 - avgTime));
+      const rawAccuracy = hasRealData ? Math.round((bucket.correct / bucket.total) * 100) : 0;
+      const avgTime = hasRealData ? Math.round(bucket.totalTime / bucket.total) : 0;
+      const speedScore = hasRealData ? Math.max(20, Math.min(100, 110 - avgTime)) : 0;
       const productivityScore = hasRealData
         ? Math.round(rawAccuracy * 0.65 + speedScore * 0.35)
-        : cfg.defaultProductivity;
+        : 0;
 
-      let errorRisk: 'low' | 'medium' | 'high' = 'medium';
-      if (rawAccuracy >= 85) errorRisk = 'low';
-      else if (rawAccuracy <= 65 || productivityScore <= 55) errorRisk = 'high';
-
-      const isPeak = hour === 9 || hour === 10 || hour === 15 || hour === 20;
-      const isTrough = hour === 1 || hour === 2 || hour === 3 || hour === 13;
+      let errorRisk: 'low' | 'medium' | 'high' | null = null;
+      if (hasRealData) {
+        if (rawAccuracy >= 85) errorRisk = 'low';
+        else if (rawAccuracy <= 65 || productivityScore <= 55) errorRisk = 'high';
+        else errorRisk = 'medium';
+      }
 
       return {
         hour,
@@ -154,8 +150,7 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
         productivityScore,
         errorRisk,
         recommendedTasks: cfg.task,
-        isPeak,
-        isTrough,
+        hasData: hasRealData,
       };
     });
   }, [answerRecords]);
@@ -192,9 +187,8 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
         const key = `${day}-${bIdx}`;
         const item = recordsMap[key];
         const hasData = item && item.total > 0;
-        const baseAcc = bIdx === 1 || bIdx === 3 ? 88 : bIdx === 2 ? 82 : 76;
-        const acc = hasData ? Math.round((item.correct / item.total) * 100) : baseAcc;
-        const prod = Math.round(acc * 0.9 + (bIdx === 1 ? 8 : 4));
+        const acc = hasData ? Math.round((item.correct / item.total) * 100) : 0;
+        const prod = hasData ? Math.round(acc * 0.9 + (bIdx === 1 ? 8 : 4)) : 0;
 
         dayRow.push({
           day,
@@ -213,9 +207,12 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
     return matrix;
   }, [answerRecords]);
 
-  // Find Peak Window & High Risk Window
-  const bestHour = useMemo(() => {
-    return [...hourlyStats].sort((a, b) => b.productivityScore - a.productivityScore)[0];
+  // 峰值/谷值完全来自真实作答数据（无数据时返回 null）
+  const { bestHour, worstHour } = useMemo(() => {
+    const practiced = hourlyStats.filter((h) => h.hasData);
+    if (practiced.length === 0) return { bestHour: null, worstHour: null };
+    const byScore = [...practiced].sort((a, b) => b.productivityScore - a.productivityScore);
+    return { bestHour: byScore[0], worstHour: byScore[byScore.length - 1] };
   }, [hourlyStats]);
 
   const currentDetail = useMemo(() => {
@@ -333,14 +330,16 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
               黄金心流做题时段
             </span>
             <span className="px-2 py-0.5 rounded-md bg-[#dcfce7] text-[#15803d] text-[10px] font-bold">
-              正确率最高
+              {bestHour ? '综合能效最高' : '等待作答数据'}
             </span>
           </div>
           <div className="mt-2 text-xl font-extrabold text-[#14532d] font-display">
-            09:00 - 11:00 & 19:30 - 21:30
+            {bestHour ? bestHour.label : '暂无数据'}
           </div>
           <div className="mt-1 text-xs text-[#166534] leading-relaxed">
-            能效得分 <strong>{bestHour.productivityScore}分</strong>（均值正确率达 93%），最适宜攻坚<strong>复杂图推规律</strong>与<strong>全真模考</strong>。
+            {bestHour
+              ? `你在该时段共作答 ${bestHour.totalAnswered} 题，正确率 ${bestHour.accuracy}%，综合能效 ${bestHour.productivityScore} 分，最适宜攻坚复杂图推与全真模考。`
+              : '完成练习后，这里会基于你的真实作答自动计算最专注的做题时段。'}
           </div>
         </div>
 
@@ -352,14 +351,16 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
               高危疲劳易错预警
             </span>
             <span className="px-2 py-0.5 rounded-md bg-[#fee2e2] text-[#991b1b] text-[10px] font-bold">
-              易错率 +28%
+              {worstHour ? '正确率最低' : '等待作答数据'}
             </span>
           </div>
           <div className="mt-2 text-xl font-extrabold text-[#7f1d1d] font-display">
-            13:00 - 14:00 & 23:30 以后
+            {worstHour ? worstHour.label : '暂无数据'}
           </div>
           <div className="mt-1 text-xs text-[#991b1b] leading-relaxed">
-            生理倦怠期粗心失误显著增加，建议此阶段安排<strong>错题温故</strong>或<strong>闭目休整</strong>。
+            {worstHour
+              ? `你在该时段共作答 ${worstHour.totalAnswered} 题，正确率仅 ${worstHour.accuracy}%，建议此阶段安排错题温故或闭目休整。`
+              : '完成练习后，这里会基于真实作答标记最容易出错的时段。'}
           </div>
         </div>
 
@@ -417,30 +418,27 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
                   ? item.accuracy
                   : item.totalAnswered;
               const isSelected = selectedHour === item.hour;
+              const noDataClass = !item.hasData
+                ? 'bg-[#f8f3e8] text-[#8c7e6d] border border-[#e3d8c2] hover:bg-[#f1eadb]'
+                : '';
 
               return (
                 <button
                   key={item.hour}
                   onClick={() => setSelectedHour(item.hour)}
-                  className={`group relative flex flex-col items-center justify-between p-2 rounded-xl text-center transition-all cursor-pointer ${getCellBgColor(
-                    val,
-                    heatmapMode,
-                    isSelected
-                  )} ${isSelected ? 'scale-105 shadow-md z-10' : ''}`}
+                  className={`group relative flex flex-col items-center justify-between p-2 rounded-xl text-center transition-all cursor-pointer ${
+                    item.hasData ? getCellBgColor(val, heatmapMode, isSelected) : noDataClass
+                  } ${isSelected ? 'scale-105 shadow-md z-10' : ''}`}
                 >
                   <span className="text-[10px] font-semibold opacity-85">{item.hour}:00</span>
                   <span className="text-xs font-bold my-1">
-                    {heatmapMode === 'volume' ? `${item.totalAnswered}题` : `${val}%`}
+                    {!item.hasData
+                      ? '—'
+                      : heatmapMode === 'volume'
+                        ? `${item.totalAnswered}题`
+                        : `${val}%`}
                   </span>
-                  <div className="w-full flex justify-center">
-                    {item.isPeak ? (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#b45309]" title="高峰期" />
-                    ) : item.isTrough ? (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#b91c1c]" title="低谷期" />
-                    ) : (
-                      <span className="w-1.5 h-1.5 rounded-full bg-transparent" />
-                    )}
-                  </div>
+                  <span className="w-1.5 h-1.5 rounded-full" />
                 </button>
               );
             })}
@@ -478,19 +476,27 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
                 <div className="bg-white/10 px-3 py-2 rounded-xl text-center">
                   <div className="text-[11px] text-[#ded3be]">综合能效</div>
                   <div className="text-base font-extrabold text-[#86efac] font-display">
-                    {currentDetail.productivityScore} <span className="text-[10px] text-[#ded3be]">分</span>
+                    {currentDetail.hasData ? (
+                      <>{currentDetail.productivityScore} <span className="text-[10px] text-[#ded3be]">分</span></>
+                    ) : (
+                      <span className="text-[#8c7e6d]">—</span>
+                    )}
                   </div>
                 </div>
                 <div className="bg-white/10 px-3 py-2 rounded-xl text-center">
                   <div className="text-[11px] text-[#ded3be]">平均正确率</div>
                   <div className="text-base font-extrabold text-white font-display">
-                    {currentDetail.accuracy}%
+                    {currentDetail.hasData ? `${currentDetail.accuracy}%` : '—'}
                   </div>
                 </div>
                 <div className="bg-white/10 px-3 py-2 rounded-xl text-center">
                   <div className="text-[11px] text-[#ded3be]">单题平均耗时</div>
                   <div className="text-base font-extrabold text-[#fed7aa] font-display">
-                    {currentDetail.avgTimeSec} <span className="text-[10px] text-[#ded3be]">秒</span>
+                    {currentDetail.hasData ? (
+                      <>{currentDetail.avgTimeSec} <span className="text-[10px] text-[#ded3be]">秒</span></>
+                    ) : (
+                      <span className="text-[#8c7e6d]">—</span>
+                    )}
                   </div>
                 </div>
                 <div className="bg-white/10 px-3 py-2 rounded-xl text-center">
@@ -537,20 +543,23 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
                           : heatmapMode === 'accuracy'
                           ? cell.accuracy
                           : cell.total;
+                      const noDataClass = 'bg-[#f8f3e8] text-[#8c7e6d] border border-[#e3d8c2]';
                       return (
                         <td key={bIdx} className="p-1.5 text-center">
                           <div
-                            className={`py-2 px-3 rounded-xl flex flex-col items-center justify-center transition-all ${getCellBgColor(
-                              val,
-                              heatmapMode,
-                              false
-                            )}`}
+                            className={`py-2 px-3 rounded-xl flex flex-col items-center justify-center transition-all ${
+                              cell.total > 0 ? getCellBgColor(val, heatmapMode, false) : noDataClass
+                            }`}
                           >
                             <span className="font-bold text-xs">
-                              {heatmapMode === 'volume' ? `${cell.total} 题` : `${val}%`}
+                              {cell.total === 0
+                                ? '—'
+                                : heatmapMode === 'volume'
+                                  ? `${cell.total} 题`
+                                  : `${val}%`}
                             </span>
                             <span className="text-[10px] opacity-80">
-                              {cell.total > 0 ? `答对 ${cell.correct}` : '基线高能'}
+                              {cell.total > 0 ? `答对 ${cell.correct}` : '暂无练习'}
                             </span>
                           </div>
                         </td>

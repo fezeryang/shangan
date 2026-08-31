@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-type AIProvider = "gemini" | "deepseek";
+type AIProvider = "gemini" | "deepseek" | "minimax" | "openai" | "anthropic";
 type ChatTurn = { role: "user" | "model"; content: string };
 
 interface GenerateOptions {
@@ -18,35 +18,95 @@ interface GenerateOptions {
   temperature?: number;
   /** Ask the model to return strict JSON */
   json?: boolean;
+  /** Max output tokens */
+  maxTokens?: number;
 }
 
-const DEEPSEEK_LABELS: Record<string, string> = {
-  "deepseek-chat": "DeepSeek Chat",
-  "deepseek-reasoner": "DeepSeek Reasoner",
+/** OpenAI 兼容协议提供商（DeepSeek / 自定义 OpenAI 中转站） */
+const COMPAT_PROVIDER_META: Record<
+  "deepseek" | "openai",
+  { envPrefix: string; defaultBase: string; defaultModel: string; label: string; needsBaseUrl: boolean }
+> = {
+  deepseek: {
+    envPrefix: "DEEPSEEK",
+    defaultBase: "https://api.deepseek.com",
+    defaultModel: "deepseek-chat",
+    label: "DeepSeek",
+    needsBaseUrl: false,
+  },
+  openai: {
+    envPrefix: "OPENAI",
+    defaultBase: "",
+    defaultModel: "gpt-4o-mini",
+    label: "自定义中转站(OpenAI)",
+    needsBaseUrl: true,
+  },
+};
+
+/** Anthropic 协议提供商（MiniMax coding plan / Claude / 自定义 Anthropic 中转站） */
+const ANTHROPIC_PROVIDER_META: Record<
+  "minimax" | "anthropic",
+  { envPrefix: string; defaultBase: string; defaultModel: string; label: string; needsBaseUrl: boolean }
+> = {
+  minimax: {
+    envPrefix: "MINIMAX",
+    defaultBase: "https://api.minimax.io/anthropic",
+    defaultModel: "MiniMax-M2.7",
+    label: "MiniMax Coding Plan",
+    needsBaseUrl: false,
+  },
+  anthropic: {
+    envPrefix: "ANTHROPIC",
+    defaultBase: "https://api.anthropic.com",
+    defaultModel: "claude-sonnet-4-20250514",
+    label: "Anthropic 中转站",
+    needsBaseUrl: false,
+  },
 };
 
 function resolveAIConfig(): { provider: AIProvider; model: string; label: string } {
   const explicit = process.env.AI_PROVIDER?.toLowerCase();
-  const provider: AIProvider =
-    explicit === "deepseek" || explicit === "gemini"
-      ? (explicit as AIProvider)
-      : process.env.DEEPSEEK_API_KEY
-        ? "deepseek"
-        : "gemini";
 
-  const model =
-    provider === "deepseek"
-      ? process.env.DEEPSEEK_MODEL || "deepseek-chat"
-      : process.env.GEMINI_MODEL || "gemini-3.7-flash";
+  let provider: AIProvider;
+  if (
+    explicit === "gemini" ||
+    explicit === "deepseek" ||
+    explicit === "minimax" ||
+    explicit === "openai" ||
+    explicit === "anthropic"
+  ) {
+    provider = explicit as AIProvider;
+  } else {
+    // 自动策略：按已配置的 key 优先级选择
+    provider =
+      process.env.MINIMAX_API_KEY
+        ? "minimax"
+        : process.env.DEEPSEEK_API_KEY
+          ? "deepseek"
+          : process.env.ANTHROPIC_API_KEY
+            ? "anthropic"
+            : process.env.OPENAI_API_KEY
+              ? "openai"
+              : "gemini";
+  }
 
-  const label =
-    provider === "deepseek"
-      ? DEEPSEEK_LABELS[model] || `DeepSeek ${model}`
-      : model
-          .replace(/^gemini-/, "Gemini ")
-          .replace(/-/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
-
+  let model: string;
+  let label: string;
+  if (provider === "gemini") {
+    model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
+    label = model
+      .replace(/^gemini-/, "Gemini ")
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  } else if (provider === "deepseek" || provider === "openai") {
+    const meta = COMPAT_PROVIDER_META[provider];
+    model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
+    label = meta.label + (model ? ` ${model}` : "");
+  } else {
+    const meta = ANTHROPIC_PROVIDER_META[provider as "minimax" | "anthropic"];
+    model = process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel;
+    label = meta.label + (model ? ` ${model}` : "");
+  }
   return { provider, model, label };
 }
 
@@ -91,14 +151,35 @@ async function generateWithGemini(opts: GenerateOptions, model: string): Promise
   return response.text ?? "";
 }
 
-// ---------- DeepSeek backend (OpenAI-compatible API) ----------
+// ---------- OpenAI 兼容后端（DeepSeek / MiniMax / 自定义中转站） ----------
 
-async function generateWithDeepSeek(opts: GenerateOptions, model: string): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+function compatConfig(provider: "deepseek" | "openai"): {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+} {
+  const meta = COMPAT_PROVIDER_META[provider];
+  const apiKey = process.env[`${meta.envPrefix}_API_KEY`];
   if (!apiKey) {
-    throw new Error("未配置 DEEPSEEK_API_KEY，无法使用 DeepSeek 引擎");
+    throw new Error(`未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`);
   }
-  const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
+  const baseUrl = (process.env[`${meta.envPrefix}_BASE_URL`] || meta.defaultBase || "").replace(/\/+$/, "");
+  if (!baseUrl) {
+    throw new Error(`未配置 ${meta.envPrefix}_BASE_URL，中转站地址不能为空`);
+  }
+  return {
+    baseUrl,
+    apiKey,
+    model: process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel,
+  };
+}
+
+async function generateWithOpenAICompatible(
+  provider: "deepseek" | "openai",
+  opts: GenerateOptions,
+  model: string
+): Promise<string> {
+  const { baseUrl, apiKey } = compatConfig(provider);
 
   const messages = [
     ...(opts.system ? [{ role: "system", content: opts.system }] : []),
@@ -110,31 +191,109 @@ async function generateWithDeepSeek(opts: GenerateOptions, model: string): Promi
       : [{ role: "user", content: opts.prompt! }]),
   ];
 
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: opts.temperature,
+  };
+  if (opts.json) {
+    body.response_format = { type: "json_object" };
+  }
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
+
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: opts.temperature,
-      ...(opts.json ? { response_format: { type: "json_object" } } : {}),
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`DeepSeek API ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`${COMPAT_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`);
   }
 
   const data: any = await res.json();
   const content: string | undefined = data.choices?.[0]?.message?.content;
   if (!content) {
-    throw new Error("DeepSeek 返回内容为空");
+    throw new Error(`${COMPAT_PROVIDER_META[provider].label} 返回内容为空`);
   }
   return content;
+}
+
+// ---------- Anthropic 兼容后端（MiniMax coding plan / Claude / 自定义中转站） ----------
+
+function anthropicConfig(provider: "minimax" | "anthropic"): {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+} {
+  const meta = ANTHROPIC_PROVIDER_META[provider];
+  const apiKey = process.env[`${meta.envPrefix}_API_KEY`];
+  if (!apiKey) {
+    throw new Error(`未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`);
+  }
+  const baseUrl = (process.env[`${meta.envPrefix}_BASE_URL`] || meta.defaultBase || "").replace(/\/+$/, "");
+  if (!baseUrl) {
+    throw new Error(`未配置 ${meta.envPrefix}_BASE_URL，中转站地址不能为空`);
+  }
+  return {
+    baseUrl,
+    apiKey,
+    model: process.env[`${meta.envPrefix}_MODEL`] || meta.defaultModel,
+  };
+}
+
+async function generateWithAnthropic(
+  provider: "minimax" | "anthropic",
+  opts: GenerateOptions,
+  model: string
+): Promise<string> {
+  const { baseUrl, apiKey } = anthropicConfig(provider);
+
+  const messages = (opts.messages
+    ? opts.messages.map((m) => ({
+        role: m.role === "user" ? "user" : "assistant",
+        content: m.content,
+      }))
+    : [{ role: "user", content: opts.prompt! }]);
+
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: opts.maxTokens || 4096,
+    messages,
+  };
+  if (opts.system) body.system = opts.system;
+  if (typeof opts.temperature === "number") body.temperature = opts.temperature;
+
+  const res = await fetch(`${baseUrl}/v1/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`${ANTHROPIC_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`);
+  }
+
+  const data: any = await res.json();
+  const text: string | undefined = Array.isArray(data.content)
+    ? data.content
+        .filter((b: any) => b?.type === "text")
+        .map((b: any) => b.text || "")
+        .join("")
+    : undefined;
+  if (!text) {
+    throw new Error(`${ANTHROPIC_PROVIDER_META[provider].label} 返回内容为空`);
+  }
+  return text;
 }
 
 // ---------- Unified dispatcher ----------
@@ -143,9 +302,18 @@ async function generateText(opts: GenerateOptions): Promise<string> {
   if (!opts.prompt && !opts.messages?.length) {
     throw new Error("generateText 需要 prompt 或 messages");
   }
-  return AI_CONFIG.provider === "deepseek"
-    ? generateWithDeepSeek(opts, AI_CONFIG.model)
-    : generateWithGemini(opts, AI_CONFIG.model);
+  switch (AI_CONFIG.provider) {
+    case "gemini":
+      return generateWithGemini(opts, AI_CONFIG.model);
+    case "deepseek":
+    case "openai":
+      return generateWithOpenAICompatible(AI_CONFIG.provider, opts, AI_CONFIG.model);
+    case "minimax":
+    case "anthropic":
+      return generateWithAnthropic(AI_CONFIG.provider, opts, AI_CONFIG.model);
+    default:
+      throw new Error(`未知 AI 引擎: ${AI_CONFIG.provider}`);
+  }
 }
 
 /** Tolerant JSON parsing: strips markdown code fences if present. */
@@ -156,7 +324,9 @@ function parseJsonLoose(text: string): any {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // 默认使用 5173（Vite 约定端口），避免与占用 3000 的其他服务冲突。
+  // 可通过环境变量 PORT 覆盖。
+  const PORT = Number(process.env.PORT) || 5173;
 
   app.use(express.json({ limit: "10mb" }));
 
@@ -178,30 +348,38 @@ async function startServer() {
         return res.status(400).json({ error: "缺少题目信息" });
       }
 
-      const prompt = `你是一位顶级大厂测评/公考行测名师兼AI学习教练。请对以下测评题目进行深度拆解和保姆级教学。
+      const prompt = `你是一位顶级大厂测评/公考行测名师兼 AI 学习教练。请对以下测评题目进行深度拆解和保姆级教学。
 
-题目类型：${question.category} (具体考点：${question.subCategory || "核心考点"})
-题干内容：
+【题目信息】
+- 题型：${question.category === 'verbal' ? '言语理解与推理' : question.category === 'data' ? '资料分析与计算' : '图形推理空间思维'}
+- 具体考点：${question.subCategory || '核心考点'}
+- 难度：${question.difficulty || '未知'}
+
+【题干】
 ${question.stem}
+${question.stemImages?.length ? `（题面配图：${question.stemImages.length} 张，已在前端渲染，无需重复描述图片内容）` : ''}
 
-选项列表：
-${question.options?.map((opt: any) => `${opt.key}: ${opt.content}`).join("\n")}
+【选项】
+${question.options?.map((opt: any) => `${opt.key}: ${opt.content}`).join('\n')}
 
-官方正确答案：${question.correctAnswer}
-用户所选答案：${selectedOption || "未作答"}
-${userNote ? `用户疑问/笔记：${userNote}` : ""}
+【官方正确答案】${question.correctAnswer}
+【用户所选答案】${selectedOption || '未作答'}
+${userNote ? `【用户疑问/笔记】${userNote}` : ''}
 
-请以结构化、生动易懂的 Markdown 格式输出以下内容：
-1. 🎯 **考点透析与破题眼**：本题考查的核心思维模型与抓手（1-2句话直击要害）。
-2. 💡 **思维链完整推导 (Step-by-Step CoT)**：一步步推导过程，尤其是图推的“第一眼特征”或言语的“语境逻辑/转折关系”或资料分析的“秒算速算技巧（如特征分数法、放缩法）”。
-3. ❌ **易错选项排雷**：为何干扰项是错的（偷换概念/无中生有/强加因果/计算陷阱）。
-4. 🚀 **秒杀口诀/同类题避坑指南**：传授一句好记的秒杀法则。
-5. 📝 **举一反三变式思考**：提示一道考查相同原理的变形思路。`;
+请以结构化、生动易懂的 Markdown 格式输出以下内容（标题用粗体，关键结论用加粗/列表突出，避免冗长）：
+1. 🎯 **考点透析与破题眼**：一句话直击本题考查的核心思维模型与切入点。
+2. 💡 **思维链完整推导 (Step-by-Step CoT)**：
+   - 言语题：找出关键词/关联词/中心句，说明排除与选择的完整逻辑链。
+   - 资料题：列公式 → 代入数字 → 秒算技巧（百化分、截位直除、放缩法）→ 得出答案。
+   - 图推题：先描述“第一眼特征”（元素组成相似/凌乱、黑白色块、对称性），再给出每一步变化规律。
+3. ❌ **易错选项排雷**：逐项说明干扰项错误类型（偷换概念/无中生有/强加因果/计算陷阱/视觉误导）。
+4. 🚀 **秒杀口诀与同类题避坑指南**：一句好记的秒杀法则 + 遇到同类题应优先验证什么。
+5. 📝 **举一反三变式思考**：给出一个考查相同原理的变形思路，帮助用户迁移。`;
 
       const explanation = await generateText({
         prompt,
         system:
-          "你是一位专业、循循善诱的北森测评与行测大厂题库专家，擅长使用图文并茂的思维拆解帮助学生快速掌握解题规律与秒杀技巧。",
+          "你是一位专业、循循善诱的北森测评与行测大厂题库专家。你的讲解必须基于题目给出的真实数据与选项，绝不编造题干不存在的数字或图形；输出使用清晰的 Markdown 结构、加粗重点、分步推导，像一位耐心的名师带学生复盘。",
         temperature: 0.4,
       });
 
@@ -223,27 +401,32 @@ ${userNote ? `用户疑问/笔记：${userNote}` : ""}
         return res.status(400).json({ error: "缺少图推题目信息" });
       }
 
-      const prompt = `你是一位专注于图形推理（图推）的资深教练。针对以下图形推理题，请提供一套系统化的“视觉解构与规律提炼”。
+      const prompt = `你是一位专注于图形推理（图推）的资深教练。针对以下图形推理题，请提供一套系统化的“视觉解构与规律提炼”，像真实教学一样一步一步拆解。
 
-题型归类：${question.category} - ${question.subCategory}
-题干描述与解析背景：
+【题型归类】${question.subCategory}
+【难度】${question.difficulty || '未知'}
+【题干描述】
 ${question.stem}
-${question.explanation ? `标准解析参考: ${question.explanation}` : ""}
+${question.stemImages?.length ? `（题面配图共 ${question.stemImages.length} 张，已在前端展示）` : ''}
+${question.explanation ? `【标准解析参考】${question.explanation}` : '（无官方解析，请独立推演）'}
 
-选项：
-${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图形"}`).join("\n")}
-正确答案：${question.correctAnswer}
+【选项】
+${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图形'}`).join('\n')}
+【正确答案】${question.correctAnswer}
 
-请详细提供：
-1. 🔍 **图形第一视觉特征（一眼定规律）**：拿到这道图推题，第一反应应该观察什么（如：元素组成相似看位置/叠加，组成凌乱看数量/属性）。
-2. 📐 **规律演化拆解**：
-   - 规律维度（点、线、角、面、素、位移、旋转、翻转、叠加相消、对称性、笔画数等）
-   - 每一步/每一行/每一列的具体演化公式（如 图1 + 图2 - 重叠部分 = 图3）。
-3. ⚡ **秒杀验证与排除法**：如何利用局部特征（如某个小黑点/折角/单双数）在10秒内快速排除干扰选项。
-4. 🧠 **思维内化口诀**：总结一条针对该类图形规律的记忆金句。`;
+请详细输出 Markdown 格式：
+1. 🔍 **第一视觉特征（一眼定规律）**：拿到题先看什么——元素组成相似看位置/叠加，组成凌乱看数量/属性，黑白分明看位运算，三视图/展开图看空间。
+2. 📐 **规律演化逐图拆解**：
+   - 明确规律维度（点、线、角、面、素、位移、旋转、翻转、叠加相消、对称性、笔画数、封闭空间等）。
+   - 写出每一步演化公式（如 图1 + 图2 − 重叠部分 = 图3；顺时针步长 2；每列黑白异或）。
+3. ⚡ **十秒秒杀与排除法**：如何用局部特征（小黑点/折角/奇偶笔画/单一线条）快速排除干扰项，并说明每个错误选项错在哪。
+4. 🧠 **思维内化口诀**：总结一条针对该类图形规律的记忆金句。
+5. 🧩 **同类题迁移预判**：遇到什么特征时应优先套用该规律。`;
 
       const analysis = await generateText({
         prompt,
+        system:
+          "你是图形推理教学专家，擅长把抽象规律拆成可验证的步骤。回答必须紧扣题目真实图形信息，不编造不存在的变化；用 Markdown 结构、加粗重点、分步列表输出。",
         temperature: 0.3,
       });
 
@@ -265,18 +448,54 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
         return res.status(400).json({ error: "缺少母题信息" });
       }
 
+      const isData = originalQuestion.category === "data";
+      const isGraphic = originalQuestion.category === "graphic";
+
+      const categoryRules = isData
+        ? `- 你必须额外生成一个 **chart** 对象：与题干自洽的统计图/表格，且所有数值必须可直接读出。
+- chart.type 允许：bar（柱状图）、line（折线图）、pie（饼图）、table（数据表）。
+- 柱状/折线：chart.categories 为横轴分类，chart.series 为 1~3 组序列 { name, data }。
+- 饼图：chart.categories 为扇区名称，chart.series 仅 1 组。
+- 表格：chart.columns 为列头数组，chart.rows 为行数据数组。
+- 每个 chart 都需有 title 与 unit；题干、选项、解析中的数字必须能在 chart 中直接查到，绝不出现“鼠标悬停才能看到”或题面未提供的数据。`
+        : isGraphic
+          ? `- 图推题无法生成图片，用文字精确描述每个图形（形状、黑白、线条数、方向、对称性等）。
+- 保持与母题相同的图形规律类别（${originalQuestion.subCategory || '图形规律'}），但换一套全新的图形元素。`
+          : `- 言语题保持相同考点（${originalQuestion.subCategory || '言语考点'}）与解题逻辑，换一篇全新文段，题干与选项语气、长度、干扰项手法与真题一致。`;
+
+      // 资料分析变式：要求 AI 输出可直接渲染的统计图 schema
+      const chartSchema = isData
+        ? `  "chart": {
+    "type": "bar",
+    "title": "图表标题",
+    "unit": "单位（如万元、%、万人）",
+    "categories": ["2019", "2020", "2021", "2022"],
+    "series": [{ "name": "销售额", "data": [100, 120, 150, 180] }]
+  },
+`
+        : '';
+
       const prompt = `请根据以下母题的考点和逻辑难度，智能生成一道【全新但考查相同核心逻辑/规律】的高质量变式题，用于用户举一反三练习。
 
-母题类型：${originalQuestion.category} - ${originalQuestion.subCategory}
-母题题干：${originalQuestion.stem}
-母题考查的核心规律/公式：${originalQuestion.explanation || "见原题考点"}
+【母题信息】
+- 题型：${originalQuestion.categoryName || originalQuestion.category}
+- 考点：${originalQuestion.subCategory}
+- 难度：${originalQuestion.difficulty || '未知'}
+- 母题题干：${originalQuestion.stem}
+- 核心规律/公式：${originalQuestion.explanation || '见原题考点'}
 
-要求输出标准 JSON 格式，字段严格如下：
+【变式生成规则】
+${categoryRules}
+- 选项数量与母题一致（${originalQuestion.options?.length || 4} 个），干扰项必须具有真实迷惑性。
+- 解析要给出完整推导，若含计算请列公式并代入数字。
+
+【必须输出的标准 JSON 格式】
 {
-  "stem": "新题目的完整题干描述",
+  "stem": "完整题干（${isData ? '题干需明确“根据图表回答问题”' : ''}）",
   "category": "${originalQuestion.category}",
   "subCategory": "${originalQuestion.subCategory}",
-  "options": [
+  "difficulty": "${originalQuestion.difficulty || 'medium'}",
+${chartSchema}  "options": [
     { "key": "A", "content": "选项A内容" },
     { "key": "B", "content": "选项B内容" },
     { "key": "C", "content": "选项C内容" },
@@ -290,9 +509,22 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
         prompt,
         json: true,
         temperature: 0.7,
+        maxTokens: 4096,
       });
 
       const parsed = parseJsonLoose(text);
+      if (isData && parsed.chart) {
+        // 轻量校验：确保图表数据结构完整，前端可直接渲染
+        const c = parsed.chart;
+        if (!c.type || !c.title) throw new Error("AI 生成的图表缺少 type/title");
+        if (c.type === "table") {
+          if (!Array.isArray(c.columns) || !Array.isArray(c.rows)) throw new Error("AI 生成的表格数据不完整");
+        } else {
+          if (!Array.isArray(c.categories) || !Array.isArray(c.series) || !c.series[0]?.data) {
+            throw new Error("AI 生成的图表数据不完整");
+          }
+        }
+      }
       res.json({ variant: parsed });
     } catch (error: any) {
       console.error("Generate Variant Error:", error);
@@ -308,23 +540,24 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
     try {
       const { mistakeSummary, stats } = req.body;
 
-      const prompt = `你是一位顶尖测评教学数据分析师兼考研/大厂测评命题研究员。根据该考生的练习数据和错题集，进行多维度学情深度诊断，并生成专属提分策略报告。
+      const prompt = `你是一位顶尖测评教学数据分析师兼考研/大厂测评命题研究员。根据该考生的真实练习数据和错题集，进行多维度学情深度诊断，并生成专属提分策略报告。
 
-考生数据概览：
+【考生真实数据概览】
 - 总做题数：${stats?.totalAnswered || 0}
-- 正确率：${stats?.accuracy || 0}%
+- 整体正确率：${stats?.accuracy || 0}%
 - 言语理解正确率：${stats?.verbalAccuracy || 0}%
 - 资料分析正确率：${stats?.dataAccuracy || 0}%
 - 图形推理正确率：${stats?.graphicAccuracy || 0}%
 
-错题考点分布与典型错题记录：
+【错题考点分布与典型错题记录】
 ${JSON.stringify(mistakeSummary || [], null, 2)}
 
-请输出 Markdown 格式的专业诊断报告：
-1. 📊 **能力画像与薄弱短板诊断**（针对三大板块的得分瓶颈深度剖析）
-2. ⚠️ **典型思维误区预警**（结合错题具体分析考生是掉入了哪些认知陷阱，如忽略极端词、图推盲目数线、资分乘除粗心）
-3. 💊 **个性化专项提分处方（7天突破规划）**
-4. 🌟 **专属鼓励与心态建议**`;
+请输出 Markdown 格式的专业诊断报告（禁止编造数据，所有结论必须从上面真实数据推出）：
+1. 📊 **能力画像与薄弱短板诊断**（针对三大板块得分瓶颈，指出最需优先提升的 2 个考点）。
+2. ⚠️ **典型思维误区预警**（结合具体错题分析考生掉入的认知陷阱：忽略极端词/图推盲目数线/资分乘除粗心/单位看错等）。
+3. 💊 **个性化专项提分处方（7天突破规划）**：按“今天/第2-3天/第4-5天/第6-7天”拆解，每天给具体可执行的刷题与复盘动作。
+4. 🚦 **下次做题时的“三秒检查清单”**：给出 3~5 条可立即执行的避错提醒。
+5. 🌟 **专属鼓励与心态建议**（真诚、具体，不写空话）。`;
 
       const diagnosis = await generateText({
         prompt,
@@ -347,17 +580,23 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
       const { messages, currentQuestionContext } = req.body;
 
       let system = `你是一位全能耐心的北森/大厂测评与行测智能辅导导师。
-你的职责是解答用户在做题过程中的各种疑问（包括言语语感、成语辨析、资料分析公式速算技巧、图形推理空间规律探索等）。
-语气专业幽默、严谨清晰、善用排版与加粗重点。`;
+职责：解答用户在做题过程中的各种疑问（言语语感、成语辨析、资料分析公式速算、图形推理空间规律等）。
+
+回答规范：
+- 紧扣题目真实数据，不编造题干未提供的数字或图形。
+- 用户问“为什么不选X”时，必须逐项对比各选项，指出错误类型（无中生有/偷换概念/计算陷阱/视觉误导）。
+- 涉及计算时，列公式、代入数字、展示完整计算过程。
+- 语气专业幽默、严谨清晰，善用 Markdown 排版、加粗重点、分点列表；篇幅根据问题复杂度控制，不啰嗦。`;
 
       if (currentQuestionContext) {
-        system += `\n用户当前正在查看/练习这道题目：
-类别：${currentQuestionContext.category} - ${currentQuestionContext.subCategory}
+        system += `\n\n【用户当前正在查看的题目上下文】
+类别：${currentQuestionContext.categoryName || currentQuestionContext.category} - ${currentQuestionContext.subCategory}
+难度：${currentQuestionContext.difficulty || '未知'}
 题干：${currentQuestionContext.stem}
-选项：${currentQuestionContext.options?.map((o: any) => `${o.key}: ${o.content}`).join("; ")}
+选项：${currentQuestionContext.options?.map((o: any) => `${o.key}: ${o.content}`).join('; ')}
 正确答案：${currentQuestionContext.correctAnswer}
-官方解析：${currentQuestionContext.explanation || "无"}
-请结合当前题目上下文为用户解答。`;
+官方解析：${currentQuestionContext.explanation || '无'}
+请结合上述题目上下文为用户解答；若用户问题与该题无关，就按通用导师角色正常回答。`;
       }
 
       const turns: ChatTurn[] = (messages || []).map((m: any) => ({

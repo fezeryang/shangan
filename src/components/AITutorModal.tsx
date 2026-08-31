@@ -1,6 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Question } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  LabelList,
+  ResponsiveContainer,
+} from 'recharts';
 import {
   Sparkles,
   Bot,
@@ -21,6 +37,135 @@ interface AITutorModalProps {
   selectedOption?: string;
   defaultTab?: 'explain' | 'graphic' | 'variant' | 'chat';
 }
+
+const CHART_COLORS = ['#b45309', '#047857', '#4338ca', '#b91c1c', '#92400e'];
+
+/** AI 生成的资料分析变式图表：直接展示数值标签，像真实题目一样可读 */
+const VariantChart: React.FC<{ chart: any }> = ({ chart }) => {
+  if (!chart) return null;
+
+  const titleNode = chart.title ? (
+    <div className="text-center font-bold text-[#26201a] text-sm mb-2">
+      {chart.title}
+      {chart.unit ? <span className="text-xs text-[#786c5e] font-medium ml-1">（单位：{chart.unit}）</span> : null}
+    </div>
+  ) : null;
+
+  if (chart.type === 'table') {
+    return (
+      <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
+        {titleNode}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                {(chart.columns || []).map((col: string, i: number) => (
+                  <th key={i} className="border border-[#ded3bd] bg-[#f6efe2] px-2.5 py-2 font-bold text-[#4a3e31]">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(chart.rows || []).map((row: any[], ri: number) => (
+                <tr key={ri}>
+                  {row.map((cell: any, ci: number) => (
+                    <td key={ci} className="border border-[#e8ded0] px-2.5 py-1.5 text-center text-[#4a3e31]">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  if (chart.type === 'pie') {
+    const pieData = (chart.categories || []).map((cat: string, i: number) => ({
+      name: cat,
+      value: chart.series?.[0]?.data?.[i] ?? 0,
+    }));
+    return (
+      <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
+        {titleNode}
+        <div className="h-56 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={78}
+                label={({ name, value }) => `${name}: ${value}`}
+              >
+                {pieData.map((_: any, i: number) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: '11px' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  }
+
+  // bar / line（柱状与折线共用：每个数据点直接显示数值）
+  const isLine = chart.type === 'line';
+  const data = (chart.categories || []).map((cat: string, i: number) => {
+    const row: Record<string, any> = { name: cat };
+    (chart.series || []).forEach((s: any) => {
+      row[s.name] = s.data?.[i] ?? 0;
+    });
+    return row;
+  });
+  const ChartComp = isLine ? LineChart : BarChart;
+
+  return (
+    <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
+      {titleNode}
+      <div className="h-56 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <ChartComp data={data} margin={{ top: 20, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e8ded0" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#4a3e31' }} />
+            <YAxis tick={{ fontSize: 10, fill: '#8c7e6d' }} />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: '11px' }} />
+            {(chart.series || []).map((s: any, i: number) =>
+              isLine ? (
+                <Line
+                  key={s.name}
+                  type="monotone"
+                  dataKey={s.name}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2}
+                >
+                  <LabelList dataKey={s.name} position="top" style={{ fontSize: 10, fill: '#4a3e31' }} />
+                </Line>
+              ) : (
+                <Bar
+                  key={s.name}
+                  dataKey={s.name}
+                  fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  radius={[4, 4, 0, 0]}
+                >
+                  <LabelList dataKey={s.name} position="top" style={{ fontSize: 10, fill: '#4a3e31' }} />
+                </Bar>
+              )
+            )}
+          </ChartComp>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 
 export const AITutorModal: React.FC<AITutorModalProps> = ({
   isOpen,
@@ -57,6 +202,30 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
 
   // Active AI engine label (Gemini / DeepSeek), fetched from server
   const [engineLabel, setEngineLabel] = useState<string>('AI 引擎');
+
+  // Draggable modal（避免面板挡住题目）
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: dragOffset.x,
+      origY: dragOffset.y,
+    };
+    (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
+  };
+  const handleDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    setDragOffset({
+      x: dragRef.current.origX + e.clientX - dragRef.current.startX,
+      y: dragRef.current.origY + e.clientY - dragRef.current.startY,
+    });
+  };
+  const handleDragEnd = () => {
+    dragRef.current = null;
+  };
 
   useEffect(() => {
     if (defaultTab) setActiveTab(defaultTab);
@@ -198,9 +367,17 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       <div
         className="bg-[#fdfbf7] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl border border-[#e3d9c4] overflow-hidden animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
+        style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}
       >
-        {/* Modal Header */}
-        <div className="bg-[#2c241d] px-5 py-4 text-[#faf6ee] flex items-center justify-between border-b border-[#4a3e31]">
+        {/* Modal Header（可拖动） */}
+        <div
+          className="bg-[#2c241d] px-5 py-4 text-[#faf6ee] flex items-center justify-between border-b border-[#4a3e31] cursor-grab active:cursor-grabbing select-none touch-none"
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+          title="拖动此区域移动面板，避免挡住题目"
+        >
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-[#b45309]/30 border border-[#b45309]/50 rounded-lg text-[#fed7aa]">
               <Bot className="w-5 h-5" />
@@ -212,12 +389,15 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
               </h3>
               <p className="text-xs text-[#ded3be] line-clamp-1">
                 {question ? `${question.categoryName} · ${question.subCategory} 深度精讲` : '全天候备考智能答疑'}
+                <span className="text-[#8c7e6d] ml-2 hidden sm:inline">⣿ 拖动标题栏可移动面板</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors text-lg text-[#ded3be] hover:text-white"
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors text-lg text-[#ded3be] hover:text-white cursor-pointer"
+            title="关闭"
           >
             ✕
           </button>
@@ -366,6 +546,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                     【变式强化题】· {variantQuestion.subCategory}
                   </div>
                   <p className="font-medium text-[#26201a] text-sm">{variantQuestion.stem}</p>
+
+                  {/* 资料分析变式：AI 生成的统计图/数据表，数据直接可读 */}
+                  {variantQuestion.chart && <VariantChart chart={variantQuestion.chart} />}
 
                   <div className="space-y-2">
                     {variantQuestion.options?.map((opt: any) => {

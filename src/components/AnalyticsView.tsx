@@ -61,7 +61,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
     const total = records.length;
     const correct = records.filter((r) => r.isCorrect).length;
-    const catAcc = total > 0 ? Math.round((correct / total) * 100) : 70;
+    const catAcc = total > 0 ? Math.round((correct / total) * 100) : 0;
 
     return {
       subject: cat.name,
@@ -72,38 +72,32 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     };
   });
 
-  // Competency Radar Data
+  // 六维能力雷达：全部由真实作答记录计算，未练习维度为 0（前端标注）
+  const accOf = (pred: (q: (typeof allQuestions)[number]) => boolean) => {
+    const recs = answerRecords.filter((r) => {
+      const q = allQuestions.find((item) => item.id === r.questionId);
+      return q ? pred(q) : false;
+    });
+    if (recs.length === 0) return 0;
+    return Math.round((recs.filter((r) => r.isCorrect).length / recs.length) * 100);
+  };
+
+  const verbalAcc = categoryStats.find((c) => c.subject.includes('言语'))?.accuracy || 0;
+  const dataAcc = categoryStats.find((c) => c.subject.includes('资料'))?.accuracy || 0;
+  const graphicAcc = categoryStats.find((c) => c.subject.includes('图形'))?.accuracy || 0;
+  const advancedGraphicAcc = accOf((q) =>
+    ['重叠相消', '时针旋转', '数量规律', '黑白位运算', '位置移动'].includes(q.subCategory)
+  );
+  const hardAcc = accOf((q) => q.difficulty === 'hard');
+  const speedScore = averageTimeSec > 0 ? Math.max(40, Math.min(100, 115 - averageTimeSec)) : 0;
+
   const radarData = [
-    {
-      subject: '言语逻辑',
-      value: categoryStats.find((c) => c.subject.includes('言语'))?.accuracy || 75,
-      benchmark: 80,
-    },
-    {
-      subject: '资料速算',
-      value: categoryStats.find((c) => c.subject.includes('资料'))?.accuracy || 70,
-      benchmark: 85,
-    },
-    {
-      subject: '重叠相消',
-      value: stats.totalAnswered > 3 ? Math.min(100, accuracy + 5) : 65,
-      benchmark: 80,
-    },
-    {
-      subject: '时针旋转',
-      value: stats.totalAnswered > 3 ? Math.min(100, accuracy + 10) : 75,
-      benchmark: 85,
-    },
-    {
-      subject: '答题速度',
-      value: Math.min(95, Math.max(50, 100 - (averageTimeSec || 40))),
-      benchmark: 85,
-    },
-    {
-      subject: '抗压稳定性',
-      value: stats.totalAnswered >= 10 ? 88 : 70,
-      benchmark: 80,
-    },
+    { subject: '言语理解', value: verbalAcc, benchmark: 80 },
+    { subject: '资料分析', value: dataAcc, benchmark: 85 },
+    { subject: '图形推理', value: graphicAcc, benchmark: 80 },
+    { subject: '图形规律进阶', value: advancedGraphicAcc, benchmark: 80 },
+    { subject: '答题速度', value: speedScore, benchmark: 85 },
+    { subject: '抗压稳定性', value: hardAcc, benchmark: 80 },
   ];
 
   // Predictive Score
@@ -232,6 +226,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               </RadarChart>
             </ResponsiveContainer>
           </div>
+          <p className="text-[11px] text-[#8c7e6d] -mt-1">
+            六维能力全部来自真实作答记录；未练习维度的能力值为 0，完成对应练习后自动更新。
+          </p>
         </div>
 
         {/* AI Recommendations & Study Plan */}
