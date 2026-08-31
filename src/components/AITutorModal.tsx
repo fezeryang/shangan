@@ -187,6 +187,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   // Variant Question State
   const [variantQuestion, setVariantQuestion] = useState<any | null>(null);
   const [loadingVariant, setLoadingVariant] = useState(false);
+  const [variantError, setVariantError] = useState<string | null>(null);
   const [variantSelected, setVariantSelected] = useState<string | null>(null);
   const [showVariantAnswer, setShowVariantAnswer] = useState(false);
 
@@ -279,7 +280,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       if (data.analysis) {
         setGraphicAnalysis(data.analysis);
       } else {
-        setGraphicAnalysis('未能生成图推规律透析');
+        setGraphicAnalysis(data.details || data.error || '未能生成图推规律透析');
       }
     } catch (e: any) {
       setGraphicAnalysis(`请求失败: ${e.message}`);
@@ -291,6 +292,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   const generateVariant = async () => {
     if (!question) return;
     setLoadingVariant(true);
+    setVariantError(null);
     setVariantSelected(null);
     setShowVariantAnswer(false);
     try {
@@ -302,9 +304,11 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
       const data = await res.json();
       if (data.variant) {
         setVariantQuestion(data.variant);
+      } else {
+        setVariantError(data.details || data.error || '生成变式题失败');
       }
     } catch (e: any) {
-      console.error(e);
+      setVariantError(e.message || '生成变式题失败');
     } finally {
       setLoadingVariant(false);
     }
@@ -525,12 +529,34 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                   <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
                   <p className="text-xs font-medium">AI 正在根据母题难度生成全新变式题目与干扰项...</p>
                 </div>
+              ) : variantError ? (
+                <div className="p-4 bg-[#fef2f0] rounded-xl border border-[#fecaca] text-xs text-[#991b1b] leading-relaxed">
+                  <div className="font-bold mb-1">❌ {variantError}</div>
+                  <p className="text-[11px] text-[#b91c1c]">
+                    可能是 API 密钥无效、网络不通或模型未返回合法内容，请点击右上角「换一道新变式」重试。
+                  </p>
+                </div>
               ) : variantQuestion ? (
                 <div className="space-y-4 p-4 bg-[#f8f3e8] rounded-xl border border-[#e3d8c2]">
                   <div className="text-xs text-[#854d0e] font-semibold">
                     【变式强化题】· {variantQuestion.subCategory}
                   </div>
                   <p className="font-medium text-[#26201a] text-sm">{variantQuestion.stem}</p>
+
+                  {/* 图推变式：AI 生成的 SVG 图形序列（与真题同规格的复杂图形） */}
+                  {variantQuestion.stemFigures?.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {variantQuestion.stemFigures.map((fig: any, i: number) => (
+                        <div key={i} className="bg-white rounded-lg border border-[#ded3bd] p-2 flex flex-col items-center gap-1">
+                          <div
+                            className="w-full flex items-center justify-center"
+                            dangerouslySetInnerHTML={{ __html: fig.svg }}
+                          />
+                          <span className="text-[10px] text-[#8c7e6d]">{fig.label || `图${i + 1}`}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* 资料分析变式：AI 生成的统计图/数据表，数据直接可读 */}
                   {variantQuestion.chart && <VariantChart chart={variantQuestion.chart} />}
@@ -566,7 +592,17 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                           <span className="w-5 h-5 rounded-full bg-[#f3ead7] flex items-center justify-center font-bold text-[#4a3e31] shrink-0">
                             {opt.key}
                           </span>
-                          <span className="flex-1">{opt.content}</span>
+                          {opt.svg ? (
+                            <span className="flex-1 flex flex-col gap-1 min-w-0">
+                              <span
+                                className="w-full min-h-16 flex items-center justify-center bg-white rounded-md border border-[#e8ded0] p-1"
+                                dangerouslySetInnerHTML={{ __html: opt.svg }}
+                              />
+                              {opt.content && <span className="text-[11px] text-[#786c5e]">{opt.content}</span>}
+                            </span>
+                          ) : (
+                            <span className="flex-1">{opt.content}</span>
+                          )}
                           {showVariantAnswer && isCorrect && (
                             <CheckCircle className="w-4 h-4 text-[#15803d] shrink-0" />
                           )}

@@ -459,8 +459,11 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图�
 - 表格：chart.columns 为列头数组，chart.rows 为行数据数组。
 - 每个 chart 都需有 title 与 unit；题干、选项、解析中的数字必须能在 chart 中直接查到，绝不出现“鼠标悬停才能看到”或题面未提供的数据。`
         : isGraphic
-          ? `- 图推题无法生成图片，用文字精确描述每个图形（形状、黑白、线条数、方向、对称性等）。
-- 保持与母题相同的图形规律类别（${originalQuestion.subCategory || '图形规律'}），但换一套全新的图形元素。`
+          ? `- 必须生成真实、复杂、可直接渲染的 SVG 图形（禁止只用文字描述图形）。
+- 每个 SVG 必须是完整字符串，viewBox="0 0 100 100"，只能使用 rect/circle/ellipse/line/polyline/polygon/path/g 等基础元素；SVG 内部属性一律用单引号，保证 JSON 合法；不得包含 <script>、<image>、外链或动画。
+- 题干用 stemFigures 给出 2~4 个图形的演化序列（label 依次为图1/图2/图3…）；选项 A-E 每个都要有独立 svg。
+- 图形复杂度对标北森真题：必须有清晰局部特征（黑点/箭头/折角/斜线/黑白块/旋转步长/叠加消去痕迹），而不是简单单一形状。
+- 保持与母题相同的图形规律类别（${originalQuestion.subCategory || '图形规律'}），但换一套全新图形元素。`
           : `- 言语题保持相同考点（${originalQuestion.subCategory || '言语考点'}）与解题逻辑，换一篇全新文段，题干与选项语气、长度、干扰项手法与真题一致。`;
 
       // 资料分析变式：要求 AI 输出可直接渲染的统计图 schema
@@ -472,6 +475,22 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图�
     "categories": ["2019", "2020", "2021", "2022"],
     "series": [{ "name": "销售额", "data": [100, 120, 150, 180] }]
   },
+`
+        : '';
+
+      // 图形推理变式：要求 AI 输出可渲染的 SVG 图形序列与选项图形
+      const graphicJsonExample = isGraphic
+        ? `  "stemFigures": [
+    { "label": "图1", "svg": "<svg viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='#000' stroke-width='3'/><circle cx='50' cy='50' r='12' fill='#000'/></svg>" },
+    { "label": "图2", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
+    { "label": "图3", "svg": "<svg viewBox='0 0 100 100'>…</svg>" }
+  ],
+  "options": [
+    { "key": "A", "content": "选项A图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
+    { "key": "B", "content": "选项B图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
+    { "key": "C", "content": "选项C图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
+    { "key": "D", "content": "选项D图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" }
+  ],
 `
         : '';
 
@@ -495,7 +514,7 @@ ${categoryRules}
   "category": "${originalQuestion.category}",
   "subCategory": "${originalQuestion.subCategory}",
   "difficulty": "${originalQuestion.difficulty || 'medium'}",
-${chartSchema}  "options": [
+${chartSchema}${graphicJsonExample}  "options": [
     { "key": "A", "content": "选项A内容" },
     { "key": "B", "content": "选项B内容" },
     { "key": "C", "content": "选项C内容" },
@@ -509,7 +528,7 @@ ${chartSchema}  "options": [
         prompt,
         json: true,
         temperature: 0.7,
-        maxTokens: 4096,
+        maxTokens: 8192,
       });
 
       const parsed = parseJsonLoose(text);
@@ -523,6 +542,16 @@ ${chartSchema}  "options": [
           if (!Array.isArray(c.categories) || !Array.isArray(c.series) || !c.series[0]?.data) {
             throw new Error("AI 生成的图表数据不完整");
           }
+        }
+      }
+      if (isGraphic) {
+        const figs = parsed.stemFigures;
+        const opts = parsed.options;
+        if (!Array.isArray(figs) || figs.length < 2 || figs.some((f: any) => !f?.svg)) {
+          throw new Error("AI 生成的图推变式缺少题干图形序列(SVG)，请重试");
+        }
+        if (!Array.isArray(opts) || opts.some((o: any) => !o?.svg)) {
+          throw new Error("AI 生成的图推变式缺少选项图形(SVG)，请重试");
         }
       }
       res.json({ variant: parsed });

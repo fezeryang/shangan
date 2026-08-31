@@ -75,7 +75,7 @@ const RealQuestionCard: React.FC<{ tab: LabTab }> = ({ tab }) => {
         body: JSON.stringify({ question }),
       });
       const data = await res.json();
-      setAiAnalysis(data.analysis || '未能生成规律透析');
+      setAiAnalysis(data.analysis || data.details || data.error || '未能生成规律透析');
     } catch (e: any) {
       setAiAnalysis(`AI 分析失败: ${e.message}`);
     } finally {
