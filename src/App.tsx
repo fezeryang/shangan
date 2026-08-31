@@ -27,15 +27,12 @@ const INITIAL_STATS: StudyStats = {
   totalAnswered: 0,
   totalCorrect: 0,
   streakDays: 1,
-  lastActiveDate: new Date().toISOString(),
   categoryStats: {
     verbal: { total: 0, correct: 0, timeSpentSec: 0 },
     data: { total: 0, correct: 0, timeSpentSec: 0 },
     graphic: { total: 0, correct: 0, timeSpentSec: 0 },
   },
   mistakeIds: [],
-  masteredIds: [],
-  averageTimeSec: 42,
 };
 
 export const App: React.FC = () => {
@@ -110,6 +107,9 @@ export const App: React.FC = () => {
   const [isGentleAlertOpen, setIsGentleAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
 
+  // Active AI engine label (Gemini / DeepSeek), fetched from server
+  const [engineLabel, setEngineLabel] = useState<string>('AI 智能引擎');
+
   // AI Tutor Modal
   const [aiModal, setAiModal] = useState<{
     isOpen: boolean;
@@ -136,6 +136,33 @@ export const App: React.FC = () => {
     });
     setActiveTab('practice');
   };
+
+  // Fetch active AI engine info once
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.label) setEngineLabel(data.label);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Compute real streak days from answer records (consecutive active days)
+  useEffect(() => {
+    if (answerRecords.length === 0) return;
+    const activeDays = new Set(answerRecords.map((r) => r.answeredAt.slice(0, 10)));
+    const day = new Date();
+    const todayStr = day.toISOString().slice(0, 10);
+    if (!activeDays.has(todayStr)) day.setDate(day.getDate() - 1); // streak survives until yesterday
+    let streak = 0;
+    while (activeDays.has(day.toISOString().slice(0, 10))) {
+      streak += 1;
+      day.setDate(day.getDate() - 1);
+    }
+    if (streak > 0) {
+      setStats((prev) => (prev.streakDays === streak ? prev : { ...prev, streakDays: streak }));
+    }
+  }, [answerRecords]);
 
   // Study Reminder Background Check & Push Loop
   useEffect(() => {
@@ -289,7 +316,6 @@ export const App: React.FC = () => {
     setStats((prev) => ({
       ...prev,
       mistakeIds: prev.mistakeIds.filter((id) => id !== qId),
-      masteredIds: Array.from(new Set([...prev.masteredIds, qId])),
     }));
   };
 
@@ -365,6 +391,9 @@ export const App: React.FC = () => {
             answeredMap={answeredMap}
             initialCategory={practiceFilters.category}
             initialSubCategory={practiceFilters.subCategory}
+            stats={stats}
+            answerRecords={answerRecords}
+            onNavigateToSubCategory={handleSelectSubCategoryFromGraph}
           />
         )}
 
@@ -379,6 +408,8 @@ export const App: React.FC = () => {
             onToggleFavorite={handleToggleFavorite}
             notes={notes}
             onSaveNote={handleSaveNote}
+            stats={stats}
+            answerRecords={answerRecords}
           />
         )}
 
@@ -395,6 +426,9 @@ export const App: React.FC = () => {
             notes={notes}
             onSaveNote={handleSaveNote}
             answeredMap={answeredMap}
+            stats={stats}
+            answerRecords={answerRecords}
+            onNavigateToSubCategory={handleSelectSubCategoryFromGraph}
           />
         )}
 
@@ -458,7 +492,7 @@ export const App: React.FC = () => {
             <span>·</span>
             <span>复杂图推</span>
             <span>·</span>
-            <span>Gemini 3.7 Flash 引擎驱动</span>
+            <span>{engineLabel} 引擎驱动</span>
           </div>
         </div>
       </footer>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, AlertTriangle, X, CheckCircle2 } from 'lucide-react';
+import { RotateCcw, AlertTriangle, X } from 'lucide-react';
 
 interface ResetConfirmModalProps {
   isOpen: boolean;

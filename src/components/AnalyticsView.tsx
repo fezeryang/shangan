@@ -38,6 +38,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
     : 0;
 
+  // Real average time per question, derived from answer records
+  const averageTimeSec =
+    answerRecords.length > 0
+      ? Math.round(
+          answerRecords.reduce((acc, r) => acc + r.timeSpentSec, 0) / answerRecords.length
+        )
+      : 0;
+
   // Calculate Category Breakdowns
   const categories = [
     { key: 'verbal', name: '言语理解与推理' },
@@ -88,7 +96,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     },
     {
       subject: '答题速度',
-      value: Math.min(95, Math.max(50, 100 - (stats.averageTimeSec || 40))),
+      value: Math.min(95, Math.max(50, 100 - (averageTimeSec || 40))),
       benchmark: 85,
     },
     {
@@ -175,7 +183,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <Clock className="w-4 h-4 text-[#6b3b1f]" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-[#6b3b1f] mt-2 font-display">
-            {stats.averageTimeSec || 42} <span className="text-xs font-normal text-[#8c7e6d]">秒</span>
+            {averageTimeSec || '—'} <span className="text-xs font-normal text-[#8c7e6d]">秒</span>
           </div>
           <div className="mt-1 text-[11px] text-[#6b3b1f] font-medium">
             建议配速 ≤ 50 秒

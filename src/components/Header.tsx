@@ -12,7 +12,6 @@ import {
   RotateCcw,
   CheckCircle2,
   Bell,
-  Clock,
 } from 'lucide-react';
 
 interface HeaderProps {

@@ -1,29 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { Question, UserAnswerRecord } from '../types';
+import { Question, StudyStats, UserAnswerRecord } from '../types';
 import { allQuestions, categoryMeta } from '../data/allQuestions';
 import { QuestionCard } from './QuestionCard';
 import {
   BookOpen,
-  Filter,
   Search,
   Shuffle,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Layers,
-  CheckCircle2,
-  Bookmark,
   Shapes,
   BarChart3,
   SlidersHorizontal,
-  RotateCcw,
 } from 'lucide-react';
 
 interface PracticeModeProps {
   onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat', q?: Question) => void;
   onRecordAnswer: (record: UserAnswerRecord) => void;
   onAddMistake: (qId: string) => void;
-  onRemoveMistake?: (qId: string) => void;
   favorites: string[];
   onToggleFavorite: (id: string) => void;
   notes: Record<string, string>;
@@ -32,13 +25,15 @@ interface PracticeModeProps {
   onResetAnswer?: (qId: string) => void;
   initialCategory?: 'all' | 'verbal' | 'data' | 'graphic';
   initialSubCategory?: string;
+  stats: StudyStats;
+  answerRecords: UserAnswerRecord[];
+  onNavigateToSubCategory?: (category: string, subCategory: string) => void;
 }
 
 export const PracticeMode: React.FC<PracticeModeProps> = ({
   onOpenAI,
   onRecordAnswer,
   onAddMistake,
-  onRemoveMistake,
   favorites,
   onToggleFavorite,
   notes,
@@ -47,6 +42,9 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
   onResetAnswer,
   initialCategory = 'all',
   initialSubCategory = 'all',
+  stats,
+  answerRecords,
+  onNavigateToSubCategory,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'verbal' | 'data' | 'graphic'>(initialCategory);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>(initialSubCategory);
@@ -82,9 +80,7 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
       if (selectedSubCategory !== 'all' && q.subCategory !== selectedSubCategory) return false;
       // Difficulty filter
       if (selectedDifficulty !== 'all') {
-        const star = typeof q.difficulty === 'number'
-          ? q.difficulty
-          : q.difficulty === 'hard' ? 5 : q.difficulty === 'medium' ? 4 : 3;
+        const star = q.difficulty === 'hard' ? 5 : q.difficulty === 'medium' ? 4 : 3;
         if (star !== selectedDifficulty) return false;
       }
       // Status filter
@@ -97,8 +93,7 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
         const inStem = q.stem.toLowerCase().includes(query);
         const inSub = q.subCategory.toLowerCase().includes(query);
         const inExpl = q.explanation.toLowerCase().includes(query);
-        const inTags = q.tags?.some((t) => t.toLowerCase().includes(query));
-        if (!inStem && !inSub && !inExpl && !inTags) return false;
+        if (!inStem && !inSub && !inExpl) return false;
       }
       return true;
     });
@@ -119,8 +114,6 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
     });
     if (!isCorrect) {
       onAddMistake(question.id);
-    } else if (onRemoveMistake) {
-      // If answered correctly, can mark mastered
     }
   };
 
@@ -335,6 +328,9 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
             instantSubmitMode={instantSubmitMode}
             questionIndex={safeIndex}
             totalQuestions={filteredQuestions.length}
+            stats={stats}
+            answerRecords={answerRecords}
+            onNavigateToSubCategory={onNavigateToSubCategory}
           />
 
           {/* Navigation Controls */}
@@ -381,6 +377,9 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
               instantSubmitMode={instantSubmitMode}
               questionIndex={idx}
               totalQuestions={filteredQuestions.length}
+              stats={stats}
+              answerRecords={answerRecords}
+              onNavigateToSubCategory={onNavigateToSubCategory}
             />
           ))}
         </div>

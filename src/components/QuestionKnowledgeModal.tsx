@@ -6,10 +6,8 @@ import {
   RAW_KNOWLEDGE_POINTS,
   EXTRA_RELATIONS,
   findKnowledgePointForQuestion,
-  TaxonomyKnowledgePoint,
 } from '../data/knowledgeTaxonomy';
 import {
-  Brain,
   Network,
   Compass,
   Sparkles,
@@ -17,15 +15,11 @@ import {
   BarChart3,
   Shapes,
   X,
-  Layers,
   ArrowRight,
-  CheckCircle2,
-  AlertTriangle,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   Target,
-  GraduationCap,
 } from 'lucide-react';
 
 interface QuestionKnowledgeModalProps {
@@ -77,7 +71,6 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
   const targetPoint = useMemo(() => findKnowledgePointForQuestion(question), [question]);
   const [viewMode, setViewMode] = useState<'focused' | 'global'>('focused');
   const [activeNodeId, setActiveNodeId] = useState<string>(targetPoint.id);
-  const [transform, setTransform] = useState({ k: 1, x: 0, y: 0 });
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -502,7 +495,6 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       .scaleExtent([0.5, 3.5])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
-        setTransform({ k: event.transform.k, x: event.transform.x, y: event.transform.y });
       });
 
     svg.call(zoomBehavior);

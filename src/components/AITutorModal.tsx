@@ -55,9 +55,23 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [loadingChat, setLoadingChat] = useState(false);
 
+  // Active AI engine label (Gemini / DeepSeek), fetched from server
+  const [engineLabel, setEngineLabel] = useState<string>('AI 引擎');
+
   useEffect(() => {
     if (defaultTab) setActiveTab(defaultTab);
   }, [defaultTab]);
+
+  // Fetch engine info when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/ai/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.label) setEngineLabel(data.label);
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   // Reset or fetch when question changes
   useEffect(() => {
@@ -195,7 +209,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             <div>
               <h3 className="text-sm sm:text-base font-bold flex items-center gap-1.5 font-display text-white">
                 <span>AI 智能思维导学助手</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#b45309]/40 text-[#fed7aa] font-mono">Gemini 3.7 Flash</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#b45309]/40 text-[#fed7aa] font-mono">{engineLabel}</span>
               </h3>
               <p className="text-xs text-[#ded3be] line-clamp-1">
                 {question ? `${question.categoryName} · ${question.subCategory} 深度精讲` : '全天候备考智能答疑'}

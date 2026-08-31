@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Question, UserAnswerRecord } from '../types';
+import { Question, StudyStats, UserAnswerRecord } from '../types';
 import { allQuestions } from '../data/allQuestions';
 import { QuestionCard } from './QuestionCard';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import {
   BookMarked,
   Sparkles,
-  RotateCcw,
   Trash2,
   CheckCircle2,
-  Filter,
   Check,
+  X,
+  Loader2,
+  Stethoscope,
 } from 'lucide-react';
 
 interface MistakeBookProps {
@@ -24,6 +26,9 @@ interface MistakeBookProps {
   onSaveNote: (id: string, note: string) => void;
   answeredMap: Record<string, string>;
   onResetAnswer?: (qId: string) => void;
+  stats: StudyStats;
+  answerRecords: UserAnswerRecord[];
+  onNavigateToSubCategory?: (category: string, subCategory: string) => void;
 }
 
 export const MistakeBook: React.FC<MistakeBookProps> = ({
@@ -38,9 +43,17 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
   onSaveNote,
   answeredMap,
   onResetAnswer,
+  stats,
+  answerRecords,
+  onNavigateToSubCategory,
 }) => {
   const [filterCat, setFilterCat] = useState<'all' | 'verbal' | 'data' | 'graphic'>('all');
-  const [redoOnly, setRedoOnly] = useState(false);
+
+  // AI Diagnosis State
+  const [isDiagnoseOpen, setIsDiagnoseOpen] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<string | null>(null);
+  const [loadingDiagnosis, setLoadingDiagnosis] = useState(false);
+  const [diagnoseError, setDiagnoseError] = useState<string | null>(null);
 
   const mistakeQuestions = allQuestions.filter((q) => mistakeIds.includes(q.id));
 
@@ -58,8 +71,61 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
       timeSpentSec: 30,
       answeredAt: new Date().toISOString(),
     });
-    if (isCorrect) {
-      // If re-answered correctly, option to remove from mistake book
+  };
+
+  const fetchDiagnosis = async () => {
+    setLoadingDiagnosis(true);
+    setDiagnoseError(null);
+    setDiagnosis(null);
+    try {
+      const mistakeSummary = mistakeQuestions.map((q) => ({
+        subCategory: q.subCategory,
+        category: q.categoryName,
+        userAnswer: answeredMap[q.id] || '未作答',
+        correctAnswer: q.correctAnswer,
+        patternRule: q.patternRule,
+      }));
+
+      const catAccuracy = (key: string) => {
+        const cs = stats.categoryStats[key];
+        if (!cs || cs.total === 0) return 0;
+        return Math.round((cs.correct / cs.total) * 100);
+      };
+
+      const res = await fetch('/api/ai/diagnose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mistakeSummary,
+          stats: {
+            totalAnswered: stats.totalAnswered,
+            accuracy:
+              stats.totalAnswered > 0
+                ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
+                : 0,
+            verbalAccuracy: catAccuracy('verbal'),
+            dataAccuracy: catAccuracy('data'),
+            graphicAccuracy: catAccuracy('graphic'),
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.diagnosis) {
+        setDiagnosis(data.diagnosis);
+      } else {
+        setDiagnoseError(data.error || '诊断报告生成失败，请稍后重试');
+      }
+    } catch (e: any) {
+      setDiagnoseError(`请求失败: ${e.message}`);
+    } finally {
+      setLoadingDiagnosis(false);
+    }
+  };
+
+  const handleOpenDiagnose = () => {
+    setIsDiagnoseOpen(true);
+    if (!diagnosis && !loadingDiagnosis) {
+      fetchDiagnosis();
     }
   };
 
@@ -81,8 +147,22 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
           </p>
         </div>
 
-        {mistakeQuestions.length > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleOpenDiagnose}
+            disabled={mistakeQuestions.length === 0}
+            title={
+              mistakeQuestions.length === 0
+                ? '暂无错题，无需诊断'
+                : 'AI 深度分析错题规律，生成专属提分处方'
+            }
+            className="px-3.5 py-2 text-xs font-semibold text-[#854d0e] bg-[#fef7ea] hover:bg-[#faeed6] border border-[#ebdcb9] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Stethoscope className="w-3.5 h-3.5" />
+            <span>AI 学情诊断</span>
+          </button>
+
+          {mistakeQuestions.length > 0 && (
             <button
               onClick={() => {
                 if (window.confirm('确定要清空所有错题记录吗？')) {
@@ -94,8 +174,8 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
               <Trash2 className="w-3.5 h-3.5" />
               <span>清空错题本</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Category Tabs */}
@@ -148,6 +228,9 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                 onSaveNote={onSaveNote}
                 questionIndex={idx}
                 totalQuestions={filtered.length}
+                stats={stats}
+                answerRecords={answerRecords}
+                onNavigateToSubCategory={onNavigateToSubCategory}
               />
 
               {/* Mastered / Remove Action Button */}
@@ -162,6 +245,65 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* AI Diagnosis Report Modal */}
+      {isDiagnoseOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-[#26201a]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setIsDiagnoseOpen(false)}
+        >
+          <div
+            className="bg-[#fdfbf7] rounded-2xl w-full max-w-3xl max-h-[88vh] flex flex-col shadow-2xl border border-[#e3d9c4] overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#2c241d] px-5 py-4 text-[#faf6ee] flex items-center justify-between border-b border-[#4a3e31]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-[#b45309]/30 border border-[#b45309]/50 rounded-lg text-[#fed7aa]">
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold font-display text-white">
+                    AI 错题学情深度诊断与提分处方
+                  </h3>
+                  <p className="text-xs text-[#ded3be]">
+                    基于你的 {stats.totalAnswered} 题作答记录与 {mistakeQuestions.length} 道错题
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDiagnoseOpen(false)}
+                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors text-lg text-[#ded3be] hover:text-white cursor-pointer"
+                aria-label="关闭诊断报告"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1">
+              {loadingDiagnosis ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-3 text-[#786c5e]">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
+                  <p className="text-xs font-medium">AI 正在多维剖析你的错题规律与思维误区...</p>
+                </div>
+              ) : diagnoseError ? (
+                <div className="p-4 bg-[#fef2f2] border border-[#fecaca] rounded-xl text-xs text-[#991b1b] space-y-3">
+                  <p>{diagnoseError}</p>
+                  <button
+                    onClick={fetchDiagnosis}
+                    className="px-3 py-1.5 bg-[#b91c1c] hover:bg-[#991b1b] text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3 h-3" /> 重新诊断
+                  </button>
+                </div>
+              ) : diagnosis ? (
+                <div className="bg-[#f8f3e8] p-4 rounded-xl border border-[#e3d8c2]">
+                  <MarkdownRenderer content={diagnosis} />
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
     </div>

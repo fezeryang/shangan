@@ -17,9 +17,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'D',
     explanation: '第一步，分析文段。首先提出“高新科技成果转化为生产力”有一个转化过程，接着详细介绍了转化过程各个环节的转化工作。最后通过“其中”“特别注意”“必须”指出除了以上的转化工作，要特别注意“经济规模生产的工艺问题”。第二步，对比选项。D 项是对文段主旨的完整同义替换。A项漏掉核心工艺问题，B项“首要任务”属于无中生有，C项“同等重要”偏离递进重点。',
     skillTip: '重点词定位法：文段中出现“其中，应特别注意/必须”等递进转折强调词时，其后内容为文段核心抓手。',
-    source: '2026 北森题库 · 言语推理 P2',
-    pageNumber: 2,
-    suggestedTime: 45,
   },
   {
     id: 'v-002',
@@ -37,9 +34,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '由题意可知：中秋“直到宋代才以节日姿态示人”，A项错误；端午节“起源于先秦，形成独立节日是在汉魏”，B项错误；文中提到“一般会提到传说但传说终归是传说，清明节最终生成在唐代”，表明传说未必确凿属实，C项正确；在大唐形成独立节日的是清明节而非中秋节，D项偷换概念。',
     skillTip: '细节对应法：警惕“时间主体偷换”（宋代中秋 vs 唐代清明 vs 汉魏端午）和“绝对化/误传因果”。',
-    source: '2026 北森题库 · 言语推理 P2',
-    pageNumber: 2,
-    suggestedTime: 50,
   },
   {
     id: 'v-003',
@@ -57,9 +51,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'D',
     explanation: '题中意思是每个人对学习新事物都会害怕，但如果就此害怕退缩、把学习当成艰难可怕的路，就永远学不到新知识。“视为畏途”指把事情看得艰难可怕而不敢去做，与前文“恐惧畏难”精准对应。“因噎废食”比喻出了点问题就索性不干；“瞻前顾后”形容顾虑过多；“首鼠两端”形容犹豫不决。',
     skillTip: '语境语义呼应：前文“恐惧、畏难”对应心理，“视为畏途”直接承接畏难不敢行。',
-    source: '2026 北森题库 · 言语推理 P2',
-    pageNumber: 2,
-    suggestedTime: 30,
   },
   {
     id: 'v-004',
@@ -77,9 +68,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'A',
     explanation: '文章解释为什么“生长在水中或水边的动植物遗体最易被保存下来”，因为能被快速掩埋。A项表述客观符合文意。B项“只有...才”绝对化；C项“最佳环境”无中生有；D项“只要...就”混淆了必要条件（原文是快速掩埋为必要条件，不是充分条件）。',
     skillTip: '逻辑条件陷阱：分清“必要条件（只有...才）”与“充分条件（只要...就）”，不可混淆。',
-    source: '2026 北森题库 · 言语推理 P3',
-    pageNumber: 3,
-    suggestedTime: 40,
   },
   {
     id: 'v-005',
@@ -97,9 +85,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'A',
     explanation: '题干前提假设：“谁受益、谁出钱”若正确，而国家是教育的最大受益者（经济效益在社会、构成综合国力）。因此符合该逻辑的必然推论是：教育经费主要由最大受益者（国家）来承担是合理的，故选A。',
     skillTip: '三段论严密推导：大前提（谁受益谁出钱）+ 小前提（国家是最大受益者）=> 结论（国家主要出钱承担）。',
-    source: '2026 北森题库 · 言语推理 P3',
-    pageNumber: 3,
-    suggestedTime: 35,
   },
   {
     id: 'v-006',
@@ -117,9 +102,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'B',
     explanation: '文段明确交代“毫无疑义，父亲是被这种高贵的吃法打动了”，结合《我的叔叔于勒》背景，父亲主动提出请吃牡蛎并非为了品尝味道，而是被体面文雅的“高贵吃法”触动，想要借此模仿有钱人，摆出绅士体面的风度，故选B。',
     skillTip: '关键词提取：抓住“被高贵的吃法打动了”，透视人物虚荣与模仿绅士上流的心理动机。',
-    source: '2026 北森题库 · 言语推理 P3',
-    pageNumber: 3,
-    suggestedTime: 40,
   },
   {
     id: 'v-007',
@@ -137,9 +119,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'B',
     explanation: '首句“经济学应具有伦理的方法，伦理学也可引进经济学的方法”即为中心句。后文说明原因并以工业生产为例进行论证。因此核心观点是经济学与伦理学相互联系、相互引进，故选B。',
     skillTip: '总分结构抓首句：首句提出双向引进互通关系，后文阐释原因及举例。',
-    source: '2026 北森题库 · 言语推理 P4',
-    pageNumber: 4,
-    suggestedTime: 35,
   },
   {
     id: 'v-008',
@@ -157,9 +136,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'B',
     explanation: '文段开篇指出“人们通常把个人成长看作是容易识别和衡量的外在行为表现”，并举例“不痴迷于游戏、掌握新语言”。四个选项中，A/C/D 属于态度、欲望或过程，只有 B 项“克服掉了抽烟的习惯”是具体可识别、可衡量的外在行为结果（改掉恶习），符合“被大家认为取得了成长”的依据。',
     skillTip: '同构例证匹配：找出与题干例子（不痴迷游戏、掌握语言）本质结构相同的选项（外在可衡量的行为改变）。',
-    source: '2026 北森题库 · 言语推理 P4',
-    pageNumber: 4,
-    suggestedTime: 40,
   },
   {
     id: 'v-009',
@@ -177,9 +153,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '文段围绕“荷尔蒙经济”与“陌生人社交平台”之间的推动与共生关系展开论述，指出陌生人社交平台为荷尔蒙经济提供了极好的载体和推手。C项精准涵盖文段两大核心主题词，且体现主体与客体的推动关系。',
     skillTip: '双核标题提炼法：标题必须同时包含文段的两大高频关键词（陌生人社交平台 + 荷尔蒙经济）。',
-    source: '2026 北森题库 · 言语推理 P4',
-    pageNumber: 4,
-    suggestedTime: 40,
   },
   {
     id: 'v-010',
@@ -197,9 +170,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: 'A项错误，原文说减肥药存在副作用，并未提到“安全无副作用”；B项错误，原文提到胃分流术在“重度肥胖情况下值得考虑”，并非完全不能用于控制体重；D项“只要不添加果糖体重就能得到控制”过于绝对；C项符合文段对节食效果、持续性及改变生活方式需要结合实际的审慎态度。',
     skillTip: '正误排查法：排除含有“无副作用”、“完全不能”、“就能控制”等绝对化词汇的干扰项。',
-    source: '2026 北森题库 · 言语推理 P5',
-    pageNumber: 5,
-    suggestedTime: 50,
   },
   {
     id: 'v-011',
@@ -217,9 +187,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'A',
     explanation: '文段核心是“怀旧（思念过去的温暖/家）能够启动同情心促成捐赠”。A项“孩子们的那些日子——呈现地震前过去的美好生活场景”，最能唤起人们对过去的追忆与怀旧感，从而最大程度触发同情心并产生捐款冲动。B/C/D 分别偏向未来展望、当下苦难和行动号召，缺少“怀旧”要素。',
     skillTip: '原理应用题：紧扣文段机制（怀旧 = 对过去温暖记忆的回顾），A项呈现震前生活场景完美契合。',
-    source: '2026 北森题库 · 言语推理 P5',
-    pageNumber: 5,
-    suggestedTime: 40,
   },
   {
     id: 'v-012',
@@ -237,9 +204,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'D',
     explanation: '“石赤不夺”出自《吕氏春秋》，比喻意志坚定不移，就像红色的石头不可剥夺其红色一样，特指对既定宏伟目标的坚定执着追求。“坚心守志”侧重恪守节操；“坚忍不拔”形容意志坚韧不可动摇（多修饰意志、毅力）；“坚贞不屈”侧重在压力或威逼下绝不屈服；D项“石赤不夺”用来形容抱定考上北大的志向绝不移改，最具典雅度与书面切合性。',
     skillTip: '高阶成语储备：“石赤不夺” = 比喻意志坚定不移（石可破也，而不可夺坚；丹可磨也，而不可夺赤）。',
-    source: '2026 北森题库 · 言语推理 P5',
-    pageNumber: 5,
-    suggestedTime: 30,
   },
   {
     id: 'v-013',
@@ -257,9 +221,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'A',
     explanation: '文段前两句指出儒家传统文化缺乏底线伦理，尾句给出对策中心句：“当我们在批判传统文化和创造新文化的时候，应该在人道主义的框架内建立一种起码的道德底线”。因此主旨是提倡建立底线文明，选A。',
     skillTip: '尾句对策为王：“应该/应当/必须...”引导的对策句通常是整个议论文段的最终主旨。',
-    source: '2026 北森题库 · 言语推理 P5',
-    pageNumber: 5,
-    suggestedTime: 35,
   },
   {
     id: 'v-014',
@@ -277,9 +238,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'B',
     explanation: '文段前两句讲科普需要文学家的生花妙笔来丰富表达，后两句讲科学飞速发展为文学创作提供素材富矿。两者互相促进、互相激励，体现双向促进作用。A、D各执一端过于片面，C项“互相依赖”程度过重。故选B。',
     skillTip: '并列双向互动概括：前讲文学助力科学传播，后讲科学滋养文学创作，合二为一即“相互激励”。',
-    source: '2026 北森题库 · 言语推理 P6',
-    pageNumber: 6,
-    suggestedTime: 35,
   },
   {
     id: 'v-015',
@@ -297,9 +255,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '文段前两句指出群众评议监督可能存在误区，第三句说明上级评议与公众评议各自的特点，尾句通过“只有...才”、“自上而下与自下而上结合才可能避免片面”给出核心论点，即怎样实现对官员的全面有效监督。故选C。',
     skillTip: '找准核心论述对象：文段论述群众与上级评议，根本落脚点在于“对官员的监督”。',
-    source: '2026 北森题库 · 言语推理 P6',
-    pageNumber: 6,
-    suggestedTime: 40,
   },
   {
     id: 'v-016',
@@ -317,9 +272,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '文段开篇列举“使用GPS、志愿者送幼龟、政府保护产卵场、卫星跟踪研究”等大量保护措施，尾句指出若无保护可能消失。直接表明人类已经做出了很多防止海龟灭绝的实际努力。故选C。',
     skillTip: '归纳事实论据：从首段首句举出的诸多保护行为直接归纳出结论。',
-    source: '2026 北森题库 · 言语推理 P6',
-    pageNumber: 6,
-    suggestedTime: 35,
   },
   {
     id: 'v-017',
@@ -337,9 +289,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: 'A项见“人们一直认为‘面孔倒置效应’是哺乳类动物独有的”；B项见“大脑会通过识别物体的通路来识别图像”；D项见“大脑有一个特定识别面孔的区域/加工面孔的脑机制”。C项“社会信息就减弱”在全文中完全没有出现，属于无中生有。',
     skillTip: '无中生有秒杀：快速扫描原文各句关键词，未出现的专业表述即为未提及项。',
-    source: '2026 北森题库 · 言语推理 P7',
-    pageNumber: 7,
-    suggestedTime: 45,
   },
   {
     id: 'v-018',
@@ -357,9 +306,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '文段中作者使用让步状语“无论‘莫扎特效应’有无这样的神奇效果...”，仅承认音乐陶冶情操抚慰心灵的作用，但对莫扎特效应是否提高智商并未表明明确的肯定或否定态度。因此无法判定作者是否认同。选C。',
     skillTip: '审视让步句式：“无论...与否”表明作者悬置该判断，不作定论。',
-    source: '2026 北森题库 · 言语推理 P7',
-    pageNumber: 7,
-    suggestedTime: 35,
   },
   {
     id: 'v-019',
@@ -377,9 +323,6 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'A',
     explanation: '由题干中的原话“读者乐于将报道的独立性与客观性相联系，认为新闻报道更有可信度”可知，人们更相信新闻报道的原因在于认为其具有客观性。选A。',
     skillTip: '原文精准定位：“独立性与客观性相联系，认为新闻报道更有可信度”。',
-    source: '2026 北森题库 · 言语推理 P8',
-    pageNumber: 8,
-    suggestedTime: 30,
   },
   {
     id: 'v-020',
@@ -397,8 +340,5 @@ export const verbalQuestions: Question[] = [
     correctAnswer: 'C',
     explanation: '文段先引出“好汉与帮手”的话题，转折词“然而”之后为核心：“好汉与帮手的学术地位非常不平衡...研究英雄的著作千百年来不绝如缕，而帮手们鲜有人把他们当作实体进行研究”。C项完整概括了英雄背后帮手贡献很大却在学术研究中被严重忽略的现状。',
     skillTip: '转折词“然而”后即核心：对比学术界重英雄轻帮手的失衡现状。',
-    source: '2026 北森题库 · 言语推理 P8',
-    pageNumber: 8,
-    suggestedTime: 45,
   },
 ];

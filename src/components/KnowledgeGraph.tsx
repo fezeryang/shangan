@@ -16,14 +16,10 @@ import {
   Filter,
   Layers,
   ArrowRight,
-  Info,
-  BookOpen,
-  BarChart3,
-  Shapes,
   Compass,
 } from 'lucide-react';
 
-export interface KnowledgeNode extends d3.SimulationNodeDatum {
+interface KnowledgeNode extends d3.SimulationNodeDatum {
   id: string;
   name: string;
   shortName: string;
@@ -40,11 +36,10 @@ export interface KnowledgeNode extends d3.SimulationNodeDatum {
   examWeight: string; // e.g. "必考 15%"
   keyFormulaOrTip: string;
   prerequisites?: string[];
-  weaknessBridges?: string[];
   radius?: number;
 }
 
-export interface KnowledgeLink extends d3.SimulationLinkDatum<KnowledgeNode> {
+interface KnowledgeLink extends d3.SimulationLinkDatum<KnowledgeNode> {
   source: string | KnowledgeNode;
   target: string | KnowledgeNode;
   type: 'hierarchy' | 'prerequisite' | 'weakness_warning' | 'cross_domain';
@@ -71,7 +66,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   // Filter & View State
   const [filterMode, setFilterMode] = useState<'all' | 'weakness' | 'verbal' | 'data' | 'graphic'>('all');
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Compute live mastery data for all nodes
@@ -133,7 +127,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     ];
 
     const catNodes: KnowledgeNode[] = categoryConfigs.map((cat) => {
-      const catStats = stats.categoryStats[cat.category] || { total: 0, correct: 0, timeSpentSec: 0 };
       const records = answerRecords.filter((r) => {
         const q = allQuestions.find((item) => item.id === r.questionId);
         return q?.category === cat.category;
@@ -212,7 +205,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         examWeight: item.examWeight,
         keyFormulaOrTip: item.keyFormulaOrTip,
         prerequisites: item.prerequisites,
-        isWeakPoint: status === 'weak' || mistakesCount > 0,
         radius: status === 'weak' ? 22 : 18,
       };
     });
@@ -612,9 +604,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
     // Interactivity: Hover & Click Handlers
     node
-      .on('mouseenter', (event, d) => {
-        setHoveredNodeId(d.id);
-
+      .on('mouseenter', (_event, d) => {
         // Find directly connected node ids
         const neighborIds = new Set<string>([d.id]);
         filteredLinks.forEach((l: any) => {
@@ -627,11 +617,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         link.transition().duration(150).style('opacity', (l: any) => (l.source.id === d.id || l.target.id === d.id ? 1 : 0.08));
       })
       .on('mouseleave', () => {
-        setHoveredNodeId(null);
         node.transition().duration(150).style('opacity', 1);
         link.transition().duration(150).style('opacity', (d) => (d.type === 'weakness_warning' ? 0.9 : 0.6));
       })
-      .on('click', (event, d) => {
+      .on('click', (_event, d) => {
         setSelectedNode(d);
       });
 

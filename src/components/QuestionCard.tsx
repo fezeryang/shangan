@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Question, OptionItem, StudyStats, UserAnswerRecord } from '../types';
+import { Question, StudyStats, UserAnswerRecord } from '../types';
 import { GraphicViewer } from './GraphicViewer';
 import { DataAnalysisChart } from './DataAnalysisChart';
 import { QuestionKnowledgeModal } from './QuestionKnowledgeModal';
@@ -9,14 +9,12 @@ import {
   Repeat,
   CheckCircle2,
   XCircle,
-  Clock,
   Edit3,
   Bookmark,
   ChevronDown,
   ChevronUp,
   Star,
   RotateCcw,
-  Check,
   CheckCheck,
   Network,
 } from 'lucide-react';
@@ -130,13 +128,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const isCorrect = activeOption === question.correctAnswer;
 
   const difficultyStars =
-    typeof question.difficulty === 'number'
-      ? question.difficulty
-      : question.difficulty === 'hard'
-      ? 5
-      : question.difficulty === 'medium'
-      ? 4
-      : 3;
+    question.difficulty === 'hard' ? 5 : question.difficulty === 'medium' ? 4 : 3;
 
   const handleSaveNote = () => {
     if (onSaveNote) {
@@ -261,26 +253,25 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         </div>
 
         {/* If Data Analysis: Chart / Table view */}
-        {question.category === 'data' && (question.chartData || question.tableData) && (
+        {question.category === 'data' && question.chartData && (
           <DataAnalysisChart
-            type={question.dataChartType || question.chartType || (question.tableData ? 'table' : 'bar')}
+            type={question.dataChartType || 'bar'}
             title={question.chartTitle || '统计分析数据'}
-            data={question.chartData || question.tableData}
-            columns={question.tableColumns || question.chartColumns}
+            data={question.chartData}
+            columns={question.chartColumns}
           />
         )}
 
         {/* If Graphic Reasoning: High precision Graphic Elements & Options */}
         {question.category === 'graphic' && (
           <GraphicViewer
-            elements={question.graphicElements || question.stemElements || []}
+            elements={question.graphicElements || []}
             options={question.options}
             selectedOption={activeOption || undefined}
             onSelectOption={handleOptionClick}
             showAnswerState={hasSubmitted}
             correctAnswer={question.correctAnswer}
             patternRule={hasSubmitted ? question.patternRule : undefined}
-            interactiveLabType={question.interactiveLabType}
             graphicType={question.graphicType}
           />
         )}
@@ -458,14 +449,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               <p className="text-[#4a3e31] leading-relaxed whitespace-pre-wrap">{question.explanation}</p>
             </div>
 
-            {/* Math Formula / Calculation steps if any */}
-            {question.formula && (
-              <div className="p-3 bg-[#eef7ef] rounded-lg border border-[#badbbf] text-[#14532d] font-mono text-xs">
-                <span className="font-sans font-semibold text-[#166534]">📐 核心速算公式/规律模型：</span>
-                <div className="mt-1">{question.formula}</div>
-              </div>
-            )}
-
             {/* Teacher's Master Skill Tip */}
             {question.skillTip && (
               <div className="p-3 bg-[#fff8eb] rounded-lg border border-[#f0d8a8] text-[#78350f] text-xs">
@@ -476,6 +459,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Knowledge Graph Modal (考点图谱定位) */}
+      <QuestionKnowledgeModal
+        isOpen={isKnowledgeModalOpen}
+        onClose={() => setIsKnowledgeModalOpen(false)}
+        question={question}
+        stats={stats}
+        answerRecords={answerRecords}
+        onNavigateToSubCategory={onNavigateToSubCategory}
+      />
     </div>
   );
 };

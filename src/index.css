@@ -1,18 +1,9 @@
 @import "tailwindcss";
 
-/* 纸质文韵与暖砚墨色主题 - Tactile Paper & Mineral Ink Aesthetic */
-:root {
-  --color-paper-bg: #f5f0e6;
-  --color-paper-card: #fdfbf7;
-  --color-paper-subcard: #f8f3e8;
-  --color-paper-border: #e3d9c4;
-  --color-paper-border-strong: #d2c5ab;
-  --color-ink-primary: #26201a;
-  --color-ink-secondary: #6e6153;
-  --color-ink-muted: #968877;
-  --color-seal-vermilion: #b94222;
-  --color-seal-amber: #b45309;
-  --color-celadon-green: #24683a;
+/* 品牌字体工具类：Tailwind v4 @theme 生成 font-display / font-mono */
+@theme {
+  --font-display: 'Plus Jakarta Sans', 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
@@ -24,21 +15,12 @@ body {
   font-family: 'Noto Sans SC', 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
-/* Paper Deckle / Texture Custom Utilities */
-.paper-card {
-  background-color: #fdfbf7;
-  border: 1px solid #e3d9c4;
-  box-shadow: 0 2px 8px -2px rgba(65, 45, 20, 0.05), 0 1px 3px -1px rgba(65, 45, 20, 0.03);
+/* 隐藏横向滚动条（顶部导航 / 标签栏） */
+.no-scrollbar {
+  scrollbar-width: none;
 }
-
-.paper-card-subtle {
-  background-color: #f8f3e8;
-  border: 1px solid #e7ddca;
-}
-
-.paper-card-pressed {
-  background-color: #f3ece0;
-  border: 1px solid #ded3be;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Warm Sepia Scrollbar */

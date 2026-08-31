@@ -426,9 +426,9 @@ export function findKnowledgePointForQuestion(q: Question): TaxonomyKnowledgePoi
     }
   }
 
-  // 2. Pattern dimension or tags or patternRule
-  if (q.patternDimension || q.patternRule || q.tags) {
-    const textToCheck = `${q.patternDimension || ''} ${q.patternRule || ''} ${(q.tags || []).join(' ')} ${q.stem || ''}`;
+  // 2. Pattern dimension or patternRule text matching
+  if (q.patternDimension || q.patternRule) {
+    const textToCheck = `${q.patternDimension || ''} ${q.patternRule || ''} ${q.stem || ''}`;
     for (const point of categoryPool) {
       if (
         point.subCategoryKeywords.some((kw) => textToCheck.includes(kw)) ||

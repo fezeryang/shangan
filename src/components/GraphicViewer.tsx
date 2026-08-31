@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GraphicStemElement, OptionItem } from '../types';
-import { Layers, ZoomIn, ArrowRight, Grid3X3, HelpCircle } from 'lucide-react';
+import { Layers, ZoomIn, ArrowRight, Grid3X3 } from 'lucide-react';
 
 interface GraphicViewerProps {
   elements?: GraphicStemElement[];
@@ -10,7 +10,6 @@ interface GraphicViewerProps {
   showAnswerState?: boolean;
   correctAnswer?: string;
   patternRule?: string;
-  interactiveLabType?: string;
   graphicType?: string;
 }
 

@@ -6,13 +6,60 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-let aiClient: GoogleGenAI | null = null;
+type AIProvider = "gemini" | "deepseek";
+type ChatTurn = { role: "user" | "model"; content: string };
 
-function getAI(): GoogleGenAI {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    aiClient = new GoogleGenAI({
-      apiKey: apiKey || "",
+interface GenerateOptions {
+  /** Single-turn prompt (mutually exclusive with messages) */
+  prompt?: string;
+  /** Multi-turn conversation history (mutually exclusive with prompt) */
+  messages?: ChatTurn[];
+  system?: string;
+  temperature?: number;
+  /** Ask the model to return strict JSON */
+  json?: boolean;
+}
+
+const DEEPSEEK_LABELS: Record<string, string> = {
+  "deepseek-chat": "DeepSeek Chat",
+  "deepseek-reasoner": "DeepSeek Reasoner",
+};
+
+function resolveAIConfig(): { provider: AIProvider; model: string; label: string } {
+  const explicit = process.env.AI_PROVIDER?.toLowerCase();
+  const provider: AIProvider =
+    explicit === "deepseek" || explicit === "gemini"
+      ? (explicit as AIProvider)
+      : process.env.DEEPSEEK_API_KEY
+        ? "deepseek"
+        : "gemini";
+
+  const model =
+    provider === "deepseek"
+      ? process.env.DEEPSEEK_MODEL || "deepseek-chat"
+      : process.env.GEMINI_MODEL || "gemini-3.7-flash";
+
+  const label =
+    provider === "deepseek"
+      ? DEEPSEEK_LABELS[model] || `DeepSeek ${model}`
+      : model
+          .replace(/^gemini-/, "Gemini ")
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return { provider, model, label };
+}
+
+const AI_CONFIG = resolveAIConfig();
+
+// ---------- Gemini backend ----------
+
+let geminiClient: GoogleGenAI | null = null;
+
+function getGeminiClient(): GoogleGenAI {
+  if (!geminiClient) {
+    geminiClient = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY || "",
       httpOptions: {
         headers: {
           "User-Agent": "aistudio-build",
@@ -20,7 +67,91 @@ function getAI(): GoogleGenAI {
       },
     });
   }
-  return aiClient;
+  return geminiClient;
+}
+
+async function generateWithGemini(opts: GenerateOptions, model: string): Promise<string> {
+  const ai = getGeminiClient();
+  const contents: any = opts.messages
+    ? opts.messages.map((m) => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content }],
+      }))
+    : opts.prompt!;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents,
+    config: {
+      temperature: opts.temperature,
+      ...(opts.system ? { systemInstruction: opts.system } : {}),
+      ...(opts.json ? { responseMimeType: "application/json" } : {}),
+    },
+  });
+  return response.text ?? "";
+}
+
+// ---------- DeepSeek backend (OpenAI-compatible API) ----------
+
+async function generateWithDeepSeek(opts: GenerateOptions, model: string): Promise<string> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    throw new Error("未配置 DEEPSEEK_API_KEY，无法使用 DeepSeek 引擎");
+  }
+  const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
+
+  const messages = [
+    ...(opts.system ? [{ role: "system", content: opts.system }] : []),
+    ...(opts.messages
+      ? opts.messages.map((m) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content,
+        }))
+      : [{ role: "user", content: opts.prompt! }]),
+  ];
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: opts.temperature,
+      ...(opts.json ? { response_format: { type: "json_object" } } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`DeepSeek API ${res.status}: ${detail.slice(0, 300)}`);
+  }
+
+  const data: any = await res.json();
+  const content: string | undefined = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error("DeepSeek 返回内容为空");
+  }
+  return content;
+}
+
+// ---------- Unified dispatcher ----------
+
+async function generateText(opts: GenerateOptions): Promise<string> {
+  if (!opts.prompt && !opts.messages?.length) {
+    throw new Error("generateText 需要 prompt 或 messages");
+  }
+  return AI_CONFIG.provider === "deepseek"
+    ? generateWithDeepSeek(opts, AI_CONFIG.model)
+    : generateWithGemini(opts, AI_CONFIG.model);
+}
+
+/** Tolerant JSON parsing: strips markdown code fences if present. */
+function parseJsonLoose(text: string): any {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+  return JSON.parse(cleaned);
 }
 
 async function startServer() {
@@ -34,6 +165,11 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Active AI engine info (Gemini / DeepSeek)
+  app.get("/api/ai/status", (_req, res) => {
+    res.json(AI_CONFIG);
+  });
+
   // AI Detailed Question Explanation & Mindmap
   app.post("/api/ai/explain", async (req, res) => {
     try {
@@ -42,7 +178,6 @@ async function startServer() {
         return res.status(400).json({ error: "缺少题目信息" });
       }
 
-      const ai = getAI();
       const prompt = `你是一位顶级大厂测评/公考行测名师兼AI学习教练。请对以下测评题目进行深度拆解和保姆级教学。
 
 题目类型：${question.category} (具体考点：${question.subCategory || "核心考点"})
@@ -63,16 +198,14 @@ ${userNote ? `用户疑问/笔记：${userNote}` : ""}
 4. 🚀 **秒杀口诀/同类题避坑指南**：传授一句好记的秒杀法则。
 5. 📝 **举一反三变式思考**：提示一道考查相同原理的变形思路。`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.4,
-          systemInstruction: "你是一位专业、循循善诱的北森测评与行测大厂题库专家，擅长使用图文并茂的思维拆解帮助学生快速掌握解题规律与秒杀技巧。",
-        },
+      const explanation = await generateText({
+        prompt,
+        system:
+          "你是一位专业、循循善诱的北森测评与行测大厂题库专家，擅长使用图文并茂的思维拆解帮助学生快速掌握解题规律与秒杀技巧。",
+        temperature: 0.4,
       });
 
-      res.json({ explanation: response.text });
+      res.json({ explanation });
     } catch (error: any) {
       console.error("AI Explain Error:", error);
       res.status(500).json({
@@ -90,7 +223,6 @@ ${userNote ? `用户疑问/笔记：${userNote}` : ""}
         return res.status(400).json({ error: "缺少图推题目信息" });
       }
 
-      const ai = getAI();
       const prompt = `你是一位专注于图形推理（图推）的资深教练。针对以下图形推理题，请提供一套系统化的“视觉解构与规律提炼”。
 
 题型归类：${question.category} - ${question.subCategory}
@@ -111,15 +243,12 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
 3. ⚡ **秒杀验证与排除法**：如何利用局部特征（如某个小黑点/折角/单双数）在10秒内快速排除干扰选项。
 4. 🧠 **思维内化口诀**：总结一条针对该类图形规律的记忆金句。`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-        },
+      const analysis = await generateText({
+        prompt,
+        temperature: 0.3,
       });
 
-      res.json({ analysis: response.text });
+      res.json({ analysis });
     } catch (error: any) {
       console.error("Graphic Pattern AI Error:", error);
       res.status(500).json({
@@ -137,7 +266,6 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
         return res.status(400).json({ error: "缺少母题信息" });
       }
 
-      const ai = getAI();
       const prompt = `请根据以下母题的考点和逻辑难度，智能生成一道【全新但考查相同核心逻辑/规律】的高质量变式题，用于用户举一反三练习。
 
 母题类型：${originalQuestion.category} - ${originalQuestion.subCategory}
@@ -160,16 +288,13 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
   "skillTip": "针对该考点的一句话核心心得"
 }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.7,
-        },
+      const text = await generateText({
+        prompt,
+        json: true,
+        temperature: 0.7,
       });
 
-      const parsed = JSON.parse(response.text.trim());
+      const parsed = parseJsonLoose(text);
       res.json({ variant: parsed });
     } catch (error: any) {
       console.error("Generate Variant Error:", error);
@@ -184,7 +309,6 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || "选项图�
   app.post("/api/ai/diagnose", async (req, res) => {
     try {
       const { mistakeSummary, stats } = req.body;
-      const ai = getAI();
 
       const prompt = `你是一位顶尖测评教学数据分析师兼考研/大厂测评命题研究员。根据该考生的练习数据和错题集，进行多维度学情深度诊断，并生成专属提分策略报告。
 
@@ -204,15 +328,12 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
 3. 💊 **个性化专项提分处方（7天突破规划）**
 4. 🌟 **专属鼓励与心态建议**`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.5,
-        },
+      const diagnosis = await generateText({
+        prompt,
+        temperature: 0.5,
       });
 
-      res.json({ diagnosis: response.text });
+      res.json({ diagnosis });
     } catch (error: any) {
       console.error("AI Diagnose Error:", error);
       res.status(500).json({
@@ -226,14 +347,13 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
   app.post("/api/ai/chat", async (req, res) => {
     try {
       const { messages, currentQuestionContext } = req.body;
-      const ai = getAI();
 
-      let systemInstruction = `你是一位全能耐心的北森/大厂测评与行测智能辅导导师。
+      let system = `你是一位全能耐心的北森/大厂测评与行测智能辅导导师。
 你的职责是解答用户在做题过程中的各种疑问（包括言语语感、成语辨析、资料分析公式速算技巧、图形推理空间规律探索等）。
 语气专业幽默、严谨清晰、善用排版与加粗重点。`;
 
       if (currentQuestionContext) {
-        systemInstruction += `\n用户当前正在查看/练习这道题目：
+        system += `\n用户当前正在查看/练习这道题目：
 类别：${currentQuestionContext.category} - ${currentQuestionContext.subCategory}
 题干：${currentQuestionContext.stem}
 选项：${currentQuestionContext.options?.map((o: any) => `${o.key}: ${o.content}`).join("; ")}
@@ -242,21 +362,18 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
 请结合当前题目上下文为用户解答。`;
       }
 
-      const formattedContents = messages.map((m: any) => ({
+      const turns: ChatTurn[] = (messages || []).map((m: any) => ({
         role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
+        content: String(m.content ?? ""),
       }));
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: formattedContents,
-        config: {
-          systemInstruction,
-          temperature: 0.5,
-        },
+      const reply = await generateText({
+        messages: turns,
+        system,
+        temperature: 0.5,
       });
 
-      res.json({ reply: response.text });
+      res.json({ reply });
     } catch (error: any) {
       console.error("AI Chat Error:", error);
       res.status(500).json({
@@ -283,6 +400,7 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`AI engine: ${AI_CONFIG.label} (${AI_CONFIG.provider}/${AI_CONFIG.model})`);
   });
 }
 

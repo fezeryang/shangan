@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Question, UserAnswerRecord } from '../types';
+import { Question, StudyStats, UserAnswerRecord } from '../types';
 import { allQuestions } from '../data/allQuestions';
 import { QuestionCard } from './QuestionCard';
 import {
@@ -21,6 +21,8 @@ interface ExamModeProps {
   onToggleFavorite: (id: string) => void;
   notes: Record<string, string>;
   onSaveNote: (id: string, note: string) => void;
+  stats: StudyStats;
+  answerRecords: UserAnswerRecord[];
 }
 
 export const ExamMode: React.FC<ExamModeProps> = ({
@@ -31,6 +33,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
   onToggleFavorite,
   notes,
   onSaveNote,
+  stats,
+  answerRecords,
 }) => {
   const [examStarted, setExamStarted] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
@@ -296,6 +300,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
             instantSubmitMode={true}
             questionIndex={currentIndex}
             totalQuestions={questions.length}
+            stats={stats}
+            answerRecords={answerRecords}
           />
 
           {/* Bottom Nav Prev / Next */}
@@ -437,6 +443,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                 showExplanationDirectly={true}
                 questionIndex={idx}
                 totalQuestions={questions.length}
+                stats={stats}
+                answerRecords={answerRecords}
               />
             ))}
           </div>

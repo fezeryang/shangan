@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Bell,
   Clock,
   Coffee,
-  CheckCircle2,
   X,
   Volume2,
   VolumeX,
@@ -24,8 +23,6 @@ export interface StudyReminderConfig {
   hasTriggered: boolean;
   createdAt: number;
 }
-
-const STORAGE_KEY = 'beisen_study_reminder_v2';
 
 // Gentle Web Audio synthesized chime (no external audio files needed)
 export const playGentleChime = () => {

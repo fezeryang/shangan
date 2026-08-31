@@ -13,7 +13,7 @@ import {
   ComposedChart,
   LabelList,
 } from 'recharts';
-import { Calculator, Table as TableIcon, BarChart3, Eye, Check } from 'lucide-react';
+import { Calculator, Table as TableIcon, BarChart3, Check } from 'lucide-react';
 
 interface DataAnalysisChartProps {
   type?: 'bar' | 'line' | 'table' | 'pie' | 'composed';
