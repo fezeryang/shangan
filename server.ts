@@ -355,10 +355,42 @@ async function generateText(opts: GenerateOptions): Promise<string> {
   }
 }
 
-/** Tolerant JSON parsing: strips markdown code fences if present. */
+/** Tolerant JSON parsing: strips markdown code fences & extracts the outer object. */
 function parseJsonLoose(text: string): any {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+  let cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    cleaned = cleaned.slice(start, end + 1);
+  }
   return JSON.parse(cleaned);
+}
+
+/** 生成严格 JSON：首次解析失败时，把错误反馈给模型重试一次（修复 SVG 未转义引号等常见问题）。 */
+async function generateJsonSafely(
+  prompt: string,
+  opts: { system?: string; temperature?: number; maxTokens?: number }
+): Promise<any> {
+  const first = await generateText({ prompt, json: true, ...opts });
+  try {
+    return parseJsonLoose(first);
+  } catch (e: any) {
+    console.warn(
+      `[AI JSON] 首次解析失败: ${e.message}\n原始输出(前1500字):\n${first.slice(0, 1500)}`
+    );
+    const repairPrompt = `你上一次输出的 JSON 无法解析，错误信息：${e.message}
+
+【上次输出（前 2500 字符）】
+${first.slice(0, 2500)}
+
+请重新输出【完整的、严格的 JSON】，要求：
+- 不要任何多余文字、注释或 markdown 代码块标记。
+- 所有字符串用双引号包裹；字符串内部若出现双引号必须转义为 \"。
+- SVG 字符串内部属性一律用单引号，例如 "svg": "<svg viewBox='0 0 100 100'><rect x='10' width='80' height='80'/></svg>"。
+- 确保 JSON 完整闭合。`;
+    const second = await generateText({ prompt: repairPrompt, json: true, ...opts });
+    return parseJsonLoose(second);
+  }
 }
 
 async function startServer() {
@@ -500,6 +532,7 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图�
         : isGraphic
           ? `- 必须生成真实、复杂、可直接渲染的 SVG 图形（禁止只用文字描述图形）。
 - 每个 SVG 必须是完整字符串，viewBox="0 0 100 100"，只能使用 rect/circle/ellipse/line/polyline/polygon/path/g 等基础元素；SVG 内部属性一律用单引号，保证 JSON 合法；不得包含 <script>、<image>、外链或动画。
+- JSON 字符串值内的双引号必须转义（写成反斜杠加双引号）；SVG 属性优先用单引号，避免出现未转义双引号。
 - 题干用 stemFigures 给出 2~4 个图形的演化序列（label 依次为图1/图2/图3…）；选项 A-E 每个都要有独立 svg。
 - 图形复杂度对标北森真题：必须有清晰局部特征（黑点/箭头/折角/斜线/黑白块/旋转步长/叠加消去痕迹），而不是简单单一形状。
 - 保持与母题相同的图形规律类别（${originalQuestion.subCategory || '图形规律'}），但换一套全新图形元素。`
@@ -563,14 +596,7 @@ ${chartSchema}${graphicJsonExample}  "options": [
   "explanation": "清晰严谨的详细推导解析与秒杀技巧"
 }`;
 
-      const text = await generateText({
-        prompt,
-        json: true,
-        temperature: 0.7,
-        maxTokens: 8192,
-      });
-
-      const parsed = parseJsonLoose(text);
+      const parsed = await generateJsonSafely(prompt, { temperature: 0.7, maxTokens: 8192 });
       if (isData && parsed.chart) {
         // 轻量校验：确保图表数据结构完整，前端可直接渲染
         const c = parsed.chart;
