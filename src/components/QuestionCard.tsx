@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Question, StudyStats, UserAnswerRecord } from '../types';
 import { QuestionKnowledgeModal } from './QuestionKnowledgeModal';
 import {
@@ -15,12 +15,13 @@ import {
   RotateCcw,
   CheckCheck,
   Network,
+  Clock,
 } from 'lucide-react';
 
 interface QuestionCardProps {
   question: Question;
   selectedOption?: string;
-  onSelectOption: (key: string) => void;
+  onSelectOption: (key: string, timeSpentSec?: number) => void;
   isAnswered: boolean;
   onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat') => void;
   onToggleFavorite?: (id: string) => void;
@@ -64,6 +65,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const [noteText, setNoteText] = useState<string>(userNote);
   const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
 
+  // 真实单题用时：从题目首次展示到提交作答
+  const startTimeRef = useRef<number>(Date.now());
+  const [submittedTimeSec, setSubmittedTimeSec] = useState<number | null>(null);
+
   // Sync draft when selectedOption changes from outside
   useEffect(() => {
     setDraftOption(selectedOption || null);
@@ -75,13 +80,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     setNoteText(userNote);
   }, [userNote]);
 
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    setSubmittedTimeSec(null);
+  }, [question.id]);
+
   // Handle clicking an option
   const handleOptionClick = (key: string) => {
     if (hasSubmitted) return; // Prevent changing after submit unless reset
 
     setDraftOption(key);
     if (instantSubmitMode) {
-      onSelectOption(key);
+      const timeSpentSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+      setSubmittedTimeSec(timeSpentSec);
+      onSelectOption(key, timeSpentSec);
       setHasSubmitted(true);
       setShowExplanation(true);
     }
@@ -90,7 +102,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   // Explicit confirmation to submit and grade
   const handleConfirmSubmit = () => {
     if (!draftOption) return;
-    onSelectOption(draftOption);
+    const timeSpentSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+    setSubmittedTimeSec(timeSpentSec);
+    onSelectOption(draftOption, timeSpentSec);
     setHasSubmitted(true);
     setShowExplanation(true);
   };
@@ -100,6 +114,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     setDraftOption(null);
     setHasSubmitted(false);
     setShowExplanation(false);
+    startTimeRef.current = Date.now();
+    setSubmittedTimeSec(null);
     if (onResetAnswer) {
       onResetAnswer(question.id);
     }
@@ -124,6 +140,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   const activeOption = draftOption || selectedOption;
   const isCorrect = activeOption === question.correctAnswer;
+  const recordTimeSec = answerRecords?.find((r) => r.questionId === question.id)?.timeSpentSec;
+  const displayTimeSec = recordTimeSec ?? submittedTimeSec;
 
   const difficultyStars =
     question.difficulty === 'hard' ? 5 : question.difficulty === 'medium' ? 4 : 3;
@@ -406,6 +424,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <RotateCcw className="w-3 h-3" />
                 <span>重新作答</span>
               </button>
+
+              {displayTimeSec != null && (
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] text-[#786c5e] bg-[#f8f3e8] border border-[#ded3bd] px-2 py-1 rounded-lg"
+                  title="本题实际作答用时"
+                >
+                  <Clock className="w-3 h-3 text-[#6b3b1f]" />
+                  <span>本题用时 {displayTimeSec}s</span>
+                </span>
+              )}
             </div>
 
             {/* Toggle Official Solution */}

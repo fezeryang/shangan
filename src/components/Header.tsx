@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { ActiveTab, StudyStats } from '../types';
-import { StudyReminderConfig } from './StudyReminder';
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import type { ActiveTab, StudyStats } from '../types';
+import type { StudyReminderConfig } from './StudyReminder';
 import {
   BookOpen,
   Shapes,
@@ -18,6 +19,7 @@ interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   stats: StudyStats;
+  aiBankCount?: number;
   onOpenAIChat: () => void;
   onResetStats: () => void;
   reminderConfig: StudyReminderConfig | null;
@@ -28,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   stats,
+  aiBankCount = 0,
   onOpenAIChat,
   onResetStats,
   reminderConfig,
@@ -69,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'graphic-lab', label: '图推实验室', icon: Shapes, badge: '高频考点' },
     { id: 'exam', label: '全真模考', icon: Timer, badge: null },
     { id: 'mistakes', label: '错题本', icon: BookMarked, badge: mistakeCount > 0 ? `${mistakeCount}` : null },
+    { id: 'ai-bank', label: 'AI 变式题库', icon: Sparkles, badge: aiBankCount > 0 ? `${aiBankCount}` : null },
     { id: 'cheatsheet', label: '考点与速算宝典', icon: Award, badge: null },
     { id: 'analytics', label: '学情看板', icon: BarChart2, badge: null },
   ];
@@ -85,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg tracking-tight text-[#26201a] font-display">
-                  北森测评·智学平台
+                  上岸测评·智学平台
                 </span>
                 <span className="text-xs px-2 py-0.5 rounded-md bg-[#fef7ea] text-[#854d0e] border border-[#ebdcb9] font-semibold">
                   2026 AI增强版

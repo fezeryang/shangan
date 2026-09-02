@@ -103,13 +103,13 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
   const safeIndex = Math.min(currentIndex, Math.max(0, filteredQuestions.length - 1));
   const currentQ = filteredQuestions[safeIndex];
 
-  const handleSelectOption = (question: Question, optionKey: string) => {
+  const handleSelectOption = (question: Question, optionKey: string, timeSpentSec = 30) => {
     const isCorrect = optionKey === question.correctAnswer;
     onRecordAnswer({
       questionId: question.id,
       userAnswer: optionKey,
       isCorrect,
-      timeSpentSec: 35,
+      timeSpentSec,
       answeredAt: new Date().toISOString(),
     });
     if (!isCorrect) {
@@ -317,7 +317,7 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
           <QuestionCard
             question={currentQ}
             selectedOption={answeredMap[currentQ.id]}
-            onSelectOption={(key) => handleSelectOption(currentQ, key)}
+            onSelectOption={(key, timeSpentSec) => handleSelectOption(currentQ, key, timeSpentSec)}
             isAnswered={!!answeredMap[currentQ.id]}
             onResetAnswer={onResetAnswer}
             onOpenAI={(tab) => onOpenAI(tab, currentQ)}
@@ -366,7 +366,7 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
               key={q.id}
               question={q}
               selectedOption={answeredMap[q.id]}
-              onSelectOption={(key) => handleSelectOption(q, key)}
+              onSelectOption={(key, timeSpentSec) => handleSelectOption(q, key, timeSpentSec)}
               isAnswered={!!answeredMap[q.id]}
               onResetAnswer={onResetAnswer}
               onOpenAI={(tab) => onOpenAI(tab, q)}

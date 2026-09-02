@@ -1,6 +1,6 @@
-// 本文件由 PDF 题库《2026北森测评题库（最新版）》自动解析生成，请勿手工编辑。
+// 本文件由 PDF 题库《2026上岸测评题库（最新版）》自动解析生成，请勿手工编辑。
 // 资料分析与计算（254 题）：共 254 题，与 PDF 原文严格对齐。
-import { Question } from '../types';
+import type { Question } from '../types';
 
 export const dataAnalysisQuestions: Question[] = [
   {

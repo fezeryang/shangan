@@ -1,27 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { ActiveTab, Question, StudyStats, UserAnswerRecord } from './types';
-import { allQuestions } from './data/allQuestions';
-import { Header } from './components/Header';
-import { PracticeMode } from './components/PracticeMode';
-import { PatternLab } from './components/PatternLab';
-import { ExamMode } from './components/ExamMode';
-import { MistakeBook } from './components/MistakeBook';
-import { FormulaGuide } from './components/FormulaGuide';
-import { AnalyticsView } from './components/AnalyticsView';
-import { AITutorModal } from './components/AITutorModal';
-import { ResetConfirmModal } from './components/ResetConfirmModal';
+import React, { useState, useEffect, useMemo } from "react";
+import type {
+  ActiveTab,
+  AIQuestion,
+  AnswerAttempt,
+  Question,
+  StudyStats,
+  UserAnswerRecord,
+} from "./types";
+import { allQuestions } from "./data/allQuestions";
+import { latestRecords } from "./data/analytics";
+import { Header } from "./components/Header";
+import { PracticeMode } from "./components/PracticeMode";
+import { PatternLab } from "./components/PatternLab";
+import { ExamMode } from "./components/ExamMode";
+import { MistakeBook } from "./components/MistakeBook";
+import { FormulaGuide } from "./components/FormulaGuide";
+import { AnalyticsView, COLLAPSE_STORAGE_KEY } from "./components/AnalyticsView";
+import { AITutorModal } from "./components/AITutorModal";
+import { AIVariantBank } from "./components/AIVariantBank";
+import { ResetConfirmModal } from "./components/ResetConfirmModal";
 import {
   StudyReminderSettingsModal,
   GentleAlertModal,
-  StudyReminderConfig,
+  type StudyReminderConfig,
   playGentleChime,
-} from './components/StudyReminder';
+} from "./components/StudyReminder";
 
-const STATS_STORAGE_KEY = 'beisen_study_stats_v1';
-const RECORDS_STORAGE_KEY = 'beisen_answer_records_v1';
-const FAVORITES_STORAGE_KEY = 'beisen_favorites_v1';
-const NOTES_STORAGE_KEY = 'beisen_notes_v1';
-const REMINDER_STORAGE_KEY = 'beisen_study_reminder_v2';
+const STATS_STORAGE_KEY = "shangan_study_stats_v1";
+const RECORDS_STORAGE_KEY = "shangan_answer_records_v1"; // 仅读取：v2 上线后的迁移源
+const ATTEMPTS_STORAGE_KEY = "shangan_answer_attempts_v2";
+const FAVORITES_STORAGE_KEY = "shangan_favorites_v1";
+const NOTES_STORAGE_KEY = "shangan_notes_v1";
+const REMINDER_STORAGE_KEY = "shangan_study_reminder_v2";
+const AI_BANK_STORAGE_KEY = "shangan_ai_variant_bank_v1";
+const AI_BANK_RECORDS_STORAGE_KEY = "shangan_ai_variant_records_v1";
+
+// ponytail: 一次性 key 迁移（beisen_* → shangan_* 品牌去名），稳定一个版本后可删
+for (const [from, to] of [
+  ["beisen_study_stats_v1", STATS_STORAGE_KEY],
+  ["beisen_answer_records_v1", RECORDS_STORAGE_KEY],
+  ["beisen_answer_attempts_v2", ATTEMPTS_STORAGE_KEY],
+  ["beisen_favorites_v1", FAVORITES_STORAGE_KEY],
+  ["beisen_notes_v1", NOTES_STORAGE_KEY],
+  ["beisen_study_reminder_v2", REMINDER_STORAGE_KEY],
+  ["beisen_ai_variant_bank_v1", AI_BANK_STORAGE_KEY],
+  ["beisen_ai_variant_records_v1", AI_BANK_RECORDS_STORAGE_KEY],
+  ["beisen_analytics_collapse_v1", COLLAPSE_STORAGE_KEY],
+] as const) {
+  if (localStorage.getItem(to) === null) {
+    const legacy = localStorage.getItem(from);
+    if (legacy !== null) {
+      localStorage.setItem(to, legacy);
+      localStorage.removeItem(from);
+    }
+  }
+}
 
 const INITIAL_STATS: StudyStats = {
   totalAnswered: 0,
@@ -36,7 +69,7 @@ const INITIAL_STATS: StudyStats = {
 };
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('practice');
+  const [activeTab, setActiveTab] = useState<ActiveTab>("practice");
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   // Stats State
@@ -45,21 +78,41 @@ export const App: React.FC = () => {
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch {
+        localStorage.removeItem(STATS_STORAGE_KEY);
+      }
     }
     return INITIAL_STATS;
   });
 
-  // User Answer Records
-  const [answerRecords, setAnswerRecords] = useState<UserAnswerRecord[]>(() => {
-    const cached = localStorage.getItem(RECORDS_STORAGE_KEY);
+  // User Answer Attempts（append-only 历史，滚动上限 500 条）
+  // ponytail: 全局滚动窗口，更早的作答轨迹会被淘汰；需要更长历史时调大上限
+  const [answerAttempts, setAnswerAttempts] = useState<AnswerAttempt[]>(() => {
+    const cached = localStorage.getItem(ATTEMPTS_STORAGE_KEY);
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch {
+        localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
+      }
+    }
+    // v1 迁移：旧版仅存每题最新一次作答，将其作为初始历史
+    const v1 = localStorage.getItem(RECORDS_STORAGE_KEY);
+    if (v1) {
+      try {
+        return JSON.parse(v1);
+      } catch {
+        // 迁移失败按空数据降级，不阻塞
+      }
     }
     return [];
   });
+
+  // 每题最新一次作答：全站统计口径（看板/错题本/练习均以此为唯一数据源）
+  const answerRecords = useMemo(
+    () => latestRecords(answerAttempts),
+    [answerAttempts],
+  );
 
   // Answered map (questionId -> user selected option)
   const answeredMap = React.useMemo(() => {
@@ -76,7 +129,9 @@ export const App: React.FC = () => {
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch {
+        localStorage.removeItem(FAVORITES_STORAGE_KEY);
+      }
     }
     return [];
   });
@@ -87,57 +142,94 @@ export const App: React.FC = () => {
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch {
+        localStorage.removeItem(NOTES_STORAGE_KEY);
+      }
     }
     return {};
   });
 
-  // Study Reminder State (persisted in localStorage)
-  const [reminderConfig, setReminderConfig] = useState<StudyReminderConfig | null>(() => {
-    const cached = localStorage.getItem(REMINDER_STORAGE_KEY);
+  // AI 举一反三变式题库（独立于真题库，含题目与作答记录）
+  const [aiQuestions, setAiQuestions] = useState<AIQuestion[]>(() => {
+    const cached = localStorage.getItem(AI_BANK_STORAGE_KEY);
     if (cached) {
       try {
         return JSON.parse(cached);
-      } catch {}
+      } catch {
+        localStorage.removeItem(AI_BANK_STORAGE_KEY);
+      }
     }
-    return null;
+    return [];
   });
+
+  const [aiAnswerRecords, setAiAnswerRecords] = useState<UserAnswerRecord[]>(
+    () => {
+      const cached = localStorage.getItem(AI_BANK_RECORDS_STORAGE_KEY);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          localStorage.removeItem(AI_BANK_RECORDS_STORAGE_KEY);
+        }
+      }
+      return [];
+    },
+  );
+
+  // Study Reminder State (persisted in localStorage)
+  const [reminderConfig, setReminderConfig] =
+    useState<StudyReminderConfig | null>(() => {
+      const cached = localStorage.getItem(REMINDER_STORAGE_KEY);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          localStorage.removeItem(REMINDER_STORAGE_KEY);
+        }
+      }
+      return null;
+    });
 
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [isGentleAlertOpen, setIsGentleAlertOpen] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
+  const [alertMessage, setAlertMessage] = useState("");
 
   // AI Tutor Modal
   const [aiModal, setAiModal] = useState<{
     isOpen: boolean;
     question: Question | null;
-    defaultTab: 'explain' | 'graphic' | 'variant' | 'chat';
+    defaultTab: "explain" | "graphic" | "variant" | "chat";
   }>({
     isOpen: false,
     question: allQuestions[0] || null,
-    defaultTab: 'explain',
+    defaultTab: "explain",
   });
 
   const [practiceFilters, setPracticeFilters] = useState<{
-    category: 'all' | 'verbal' | 'data' | 'graphic';
+    category: "all" | "verbal" | "data" | "graphic";
     subCategory: string;
   }>({
-    category: 'all',
-    subCategory: 'all',
+    category: "all",
+    subCategory: "all",
   });
 
-  const handleSelectSubCategoryFromGraph = (category: string, subCategory: string) => {
+  const handleSelectSubCategoryFromGraph = (
+    category: string,
+    subCategory: string,
+  ) => {
     setPracticeFilters({
       category: category as any,
       subCategory: subCategory,
     });
-    setActiveTab('practice');
+    setActiveTab("practice");
   };
 
   // Compute real streak days from answer records (consecutive active days)
   useEffect(() => {
     if (answerRecords.length === 0) return;
-    const activeDays = new Set(answerRecords.map((r) => r.answeredAt.slice(0, 10)));
+    const activeDays = new Set(
+      answerRecords.map((r) => r.answeredAt.slice(0, 10)),
+    );
     const day = new Date();
     const todayStr = day.toISOString().slice(0, 10);
     if (!activeDays.has(todayStr)) day.setDate(day.getDate() - 1); // streak survives until yesterday
@@ -147,18 +239,29 @@ export const App: React.FC = () => {
       day.setDate(day.getDate() - 1);
     }
     if (streak > 0) {
-      setStats((prev) => (prev.streakDays === streak ? prev : { ...prev, streakDays: streak }));
+      setStats((prev) =>
+        prev.streakDays === streak ? prev : { ...prev, streakDays: streak },
+      );
     }
   }, [answerRecords]);
 
   // Study Reminder Background Check & Push Loop
   useEffect(() => {
-    if (!reminderConfig || !reminderConfig.enabled || reminderConfig.hasTriggered || !reminderConfig.targetTimestamp) {
+    if (
+      !reminderConfig ||
+      !reminderConfig.enabled ||
+      reminderConfig.hasTriggered ||
+      !reminderConfig.targetTimestamp
+    ) {
       return;
     }
 
     const checkTimer = () => {
-      if (reminderConfig.enabled && !reminderConfig.hasTriggered && reminderConfig.targetTimestamp) {
+      if (
+        reminderConfig.enabled &&
+        !reminderConfig.hasTriggered &&
+        reminderConfig.targetTimestamp
+      ) {
         if (Date.now() >= reminderConfig.targetTimestamp) {
           // Timer reached!
           const updated: StudyReminderConfig = {
@@ -173,7 +276,8 @@ export const App: React.FC = () => {
           }
 
           setAlertMessage(
-            reminderConfig.message || '🌱 专注时光圆满达成，起来喝口温水，眺望远方放松一下眼睛吧！'
+            reminderConfig.message ||
+              "🌱 专注时光圆满达成，起来喝口温水，眺望远方放松一下眼睛吧！",
           );
           setIsGentleAlertOpen(true);
         }
@@ -200,7 +304,7 @@ export const App: React.FC = () => {
       enabled: true,
       targetTimestamp: targetMs,
       durationMinutes: minutes,
-      message: reminderConfig?.message || '☕ 休息结束啦，元气满满继续专注！',
+      message: reminderConfig?.message || "☕ 休息结束啦，元气满满继续专注！",
       soundEnabled: reminderConfig?.soundEnabled ?? true,
       hasTriggered: false,
       createdAt: Date.now(),
@@ -218,8 +322,8 @@ export const App: React.FC = () => {
   }, [stats]);
 
   useEffect(() => {
-    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(answerRecords));
-  }, [answerRecords]);
+    localStorage.setItem(ATTEMPTS_STORAGE_KEY, JSON.stringify(answerAttempts));
+  }, [answerAttempts]);
 
   useEffect(() => {
     localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
@@ -229,18 +333,30 @@ export const App: React.FC = () => {
     localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
   }, [notes]);
 
+  useEffect(() => {
+    localStorage.setItem(AI_BANK_STORAGE_KEY, JSON.stringify(aiQuestions));
+  }, [aiQuestions]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      AI_BANK_RECORDS_STORAGE_KEY,
+      JSON.stringify(aiAnswerRecords),
+    );
+  }, [aiAnswerRecords]);
+
   // Record Answer Callback
   const handleRecordAnswer = (record: UserAnswerRecord) => {
-    setAnswerRecords((prev) => {
-      const filtered = prev.filter((r) => r.questionId !== record.questionId);
-      return [record, ...filtered];
-    });
+    setAnswerAttempts((prev) => [...prev, record].slice(-500));
 
     setStats((prev) => {
       const q = allQuestions.find((item) => item.id === record.questionId);
-      const catKey = q?.category || 'verbal';
+      const catKey = q?.category || "verbal";
 
-      const prevCat = prev.categoryStats[catKey] || { total: 0, correct: 0, timeSpentSec: 0 };
+      const prevCat = prev.categoryStats[catKey] || {
+        total: 0,
+        correct: 0,
+        timeSpentSec: 0,
+      };
       const newCat = {
         total: prevCat.total + 1,
         correct: prevCat.correct + (record.isCorrect ? 1 : 0),
@@ -262,23 +378,36 @@ export const App: React.FC = () => {
   // Reset single question answer
   const handleResetAnswer = (qId: string) => {
     const existingRec = answerRecords.find((r) => r.questionId === qId);
-    setAnswerRecords((prev) => prev.filter((r) => r.questionId !== qId));
+    setAnswerAttempts((prev) => prev.filter((r) => r.questionId !== qId));
 
     if (existingRec) {
       setStats((prev) => {
         const q = allQuestions.find((item) => item.id === qId);
-        const catKey = q?.category || 'verbal';
-        const prevCat = prev.categoryStats[catKey] || { total: 0, correct: 0, timeSpentSec: 0 };
+        const catKey = q?.category || "verbal";
+        const prevCat = prev.categoryStats[catKey] || {
+          total: 0,
+          correct: 0,
+          timeSpentSec: 0,
+        };
         const newCat = {
           total: Math.max(0, prevCat.total - 1),
-          correct: Math.max(0, prevCat.correct - (existingRec.isCorrect ? 1 : 0)),
-          timeSpentSec: Math.max(0, prevCat.timeSpentSec - existingRec.timeSpentSec),
+          correct: Math.max(
+            0,
+            prevCat.correct - (existingRec.isCorrect ? 1 : 0),
+          ),
+          timeSpentSec: Math.max(
+            0,
+            prevCat.timeSpentSec - existingRec.timeSpentSec,
+          ),
         };
 
         return {
           ...prev,
           totalAnswered: Math.max(0, prev.totalAnswered - 1),
-          totalCorrect: Math.max(0, prev.totalCorrect - (existingRec.isCorrect ? 1 : 0)),
+          totalCorrect: Math.max(
+            0,
+            prev.totalCorrect - (existingRec.isCorrect ? 1 : 0),
+          ),
           categoryStats: {
             ...prev.categoryStats,
             [catKey]: newCat,
@@ -316,7 +445,7 @@ export const App: React.FC = () => {
   // Favorites & Notes
   const handleToggleFavorite = (id: string) => {
     setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -324,10 +453,52 @@ export const App: React.FC = () => {
     setNotes((prev) => ({ ...prev, [id]: note }));
   };
 
+  // AI 变式题库：保存 / 删除 / 清空 / 记录作答
+  const handleSaveVariant = (variant: any, source: Question) => {
+    const id = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const newQuestion: AIQuestion = {
+      id,
+      category: (variant.category as AIQuestion["category"]) || source.category,
+      categoryName: source.categoryName,
+      subCategory: variant.subCategory || source.subCategory,
+      difficulty:
+        (variant.difficulty as AIQuestion["difficulty"]) || source.difficulty,
+      stem: String(variant.stem || ""),
+      options: Array.isArray(variant.options)
+        ? variant.options
+        : source.options,
+      correctAnswer: variant.correctAnswer,
+      explanation: variant.explanation || "",
+      chart: variant.chart,
+      stemFigures: variant.stemFigures,
+      sourceQuestionId: source.id,
+      sourceQuestionStem: source.stem,
+      createdAt: new Date().toISOString(),
+    };
+    setAiQuestions((prev) => [newQuestion, ...prev.filter((q) => q.id !== id)]);
+  };
+
+  const handleDeleteAIQuestion = (id: string) => {
+    setAiQuestions((prev) => prev.filter((q) => q.id !== id));
+    setAiAnswerRecords((prev) => prev.filter((r) => r.questionId !== id));
+  };
+
+  const handleClearAIBank = () => {
+    setAiQuestions([]);
+    setAiAnswerRecords([]);
+  };
+
+  const handleRecordAIAnswer = (record: UserAnswerRecord) => {
+    setAiAnswerRecords((prev) => {
+      const filtered = prev.filter((r) => r.questionId !== record.questionId);
+      return [record, ...filtered];
+    });
+  };
+
   // Open AI Modal
   const handleOpenAI = (
-    tab: 'explain' | 'graphic' | 'variant' | 'chat',
-    question?: Question
+    tab: "explain" | "graphic" | "variant" | "chat",
+    question?: Question,
   ) => {
     setAiModal({
       isOpen: true,
@@ -340,12 +511,13 @@ export const App: React.FC = () => {
   const handleConfirmResetStats = () => {
     localStorage.removeItem(STATS_STORAGE_KEY);
     localStorage.removeItem(RECORDS_STORAGE_KEY);
+    localStorage.removeItem(ATTEMPTS_STORAGE_KEY);
     localStorage.removeItem(FAVORITES_STORAGE_KEY);
     localStorage.removeItem(NOTES_STORAGE_KEY);
 
     // Reset In-Memory React State immediately
     setStats(INITIAL_STATS);
-    setAnswerRecords([]);
+    setAnswerAttempts([]);
     setFavorites([]);
     setNotes({});
   };
@@ -357,7 +529,8 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         stats={stats}
-        onOpenAIChat={() => handleOpenAI('chat')}
+        aiBankCount={aiQuestions.length}
+        onOpenAIChat={() => handleOpenAI("chat")}
         onResetStats={() => setIsResetModalOpen(true)}
         reminderConfig={reminderConfig}
         onOpenReminderModal={() => setIsReminderSettingsOpen(true)}
@@ -365,7 +538,7 @@ export const App: React.FC = () => {
 
       {/* Main Tab Views */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {activeTab === 'practice' && (
+        {activeTab === "practice" && (
           <PracticeMode
             onOpenAI={handleOpenAI}
             onRecordAnswer={handleRecordAnswer}
@@ -384,9 +557,16 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'graphic-lab' && <PatternLab />}
+        {activeTab === "graphic-lab" && (
+          <PatternLab
+            onOpenAI={handleOpenAI}
+            onRecordAnswer={handleRecordAnswer}
+            onAddMistake={handleAddMistake}
+            stats={stats}
+          />
+        )}
 
-        {activeTab === 'exam' && (
+        {activeTab === "exam" && (
           <ExamMode
             onOpenAI={handleOpenAI}
             onRecordAnswer={handleRecordAnswer}
@@ -400,7 +580,7 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'mistakes' && (
+        {activeTab === "mistakes" && (
           <MistakeBook
             mistakeIds={stats.mistakeIds}
             onRemoveMistake={handleRemoveMistake}
@@ -419,12 +599,24 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'cheatsheet' && <FormulaGuide />}
+        {activeTab === "ai-bank" && (
+          <AIVariantBank
+            questions={aiQuestions}
+            answerRecords={aiAnswerRecords}
+            onRecordAnswer={handleRecordAIAnswer}
+            onDeleteQuestion={handleDeleteAIQuestion}
+            onClearAll={handleClearAIBank}
+            onOpenAI={handleOpenAI}
+          />
+        )}
 
-        {activeTab === 'analytics' && (
+        {activeTab === "cheatsheet" && <FormulaGuide />}
+
+        {activeTab === "analytics" && (
           <AnalyticsView
             stats={stats}
             answerRecords={answerRecords}
+            answerAttempts={answerAttempts}
             onSelectSubCategory={handleSelectSubCategoryFromGraph}
           />
         )}
@@ -436,7 +628,16 @@ export const App: React.FC = () => {
         onClose={() => setAiModal({ ...aiModal, isOpen: false })}
         question={aiModal.question}
         defaultTab={aiModal.defaultTab}
-        selectedOption={aiModal.question ? answeredMap[aiModal.question.id] : undefined}
+        selectedOption={
+          aiModal.question
+            ? answeredMap[aiModal.question.id] ||
+              aiAnswerRecords.find(
+                (record) => record.questionId === aiModal.question?.id,
+              )?.userAnswer
+            : undefined
+        }
+        userNote={aiModal.question ? notes[aiModal.question.id] : undefined}
+        onSaveVariant={handleSaveVariant}
       />
 
       {/* Custom Reset Confirm Modal */}
@@ -471,7 +672,9 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-[#e3d9c4] bg-[#fdfbf7] py-6 mt-12 text-center text-xs text-[#786c5e]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>© 2026 北森测评智能备考学习平台 · 全真题库 & AI 思维链智能导学系统</span>
+          <span>
+            © 2026 上岸测评智能备考学习平台 · 全真题库 & AI 思维链智能导学系统
+          </span>
           <div className="flex items-center gap-4 text-[#8c7e6d]">
             <span>言语理解</span>
             <span>·</span>
@@ -488,5 +691,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
-

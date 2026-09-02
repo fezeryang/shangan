@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
-import { Question, StudyStats, UserAnswerRecord } from '../types';
+import type { Question, StudyStats, UserAnswerRecord } from '../types';
 import { allQuestions } from '../data/allQuestions';
 import {
   RAW_KNOWLEDGE_POINTS,
@@ -150,7 +151,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       mistakesCount,
       status:
         acc === null ? 'unpracticed' : acc >= 80 ? 'mastered' : acc >= 65 ? 'moderate' : 'weak',
-      description: `北森测评 ${name} 核心能力体系（题库真题 ${catQuestions.length} 道）`,
+      description: `上岸测评 ${name} 核心能力体系（题库真题 ${catQuestions.length} 道）`,
       examWeight: '模块核心',
       keyFormulaOrTip: '系统掌握基础模型与速算解题策略。',
       radius: 30,
@@ -256,7 +257,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           : null;
       const rootNode: GraphNode = {
         id: 'root_hub',
-        name: '北森测评能力全景',
+        name: '上岸测评能力全景',
         shortName: '能力全景',
         category: 'root',
         categoryName: '全科综合',
@@ -274,7 +275,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
             : totalAcc >= 65
             ? 'moderate'
             : 'weak',
-        description: '北森核心测评三大模块知识图谱体系',
+        description: '核心测评三大模块知识图谱体系',
         examWeight: '全科 100%',
         keyFormulaOrTip: '全科协同，掌握核心题型规律。',
         radius: 30,
@@ -629,7 +630,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#786c5e] mt-0.5">
-                定位本题在北森测评全科知识图谱中的层级坐标、前置基础与进阶考点
+                定位本题在上岸测评全科知识图谱中的层级坐标、前置基础与进阶考点
               </p>
             </div>
           </div>
@@ -880,7 +881,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
         {/* Modal Bottom Bar */}
         <div className="bg-[#f7f2e5] border-t border-[#e3d9c4] px-5 py-3 flex items-center justify-between text-xs">
           <div className="text-[#786c5e]">
-            已收录北森全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 · 覆盖真题 {allQuestions.length} 道
+            已收录全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 · 覆盖真题 {allQuestions.length} 道
           </div>
           <button
             onClick={onClose}

@@ -3,6 +3,20 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import {
+  PROMPT_TASKS,
+  buildChatContextMessage,
+  buildDiagnosePrompt,
+  buildExplainPrompt,
+  buildGraphicPatternPrompt,
+  buildVariantPrompt,
+  pickAnswerKey,
+} from "./prompts";
+import { sanitizeVariantSvgs } from "./svgSanitize";
+import { parseJsonLoose } from "./jsonLoose";
+import { renderVariant } from "./src/figureEngine/generators";
+import { SUB_CATEGORY_KINDS, validateRuleSpec } from "./src/figureEngine/spec";
+import { verifyVariant } from "./src/figureEngine/verify";
 
 dotenv.config();
 
@@ -25,7 +39,13 @@ interface GenerateOptions {
 /** OpenAI 兼容协议提供商（DeepSeek / 自定义 OpenAI 中转站） */
 const COMPAT_PROVIDER_META: Record<
   "deepseek" | "openai",
-  { envPrefix: string; defaultBase: string; defaultModel: string; label: string; needsBaseUrl: boolean }
+  {
+    envPrefix: string;
+    defaultBase: string;
+    defaultModel: string;
+    label: string;
+    needsBaseUrl: boolean;
+  }
 > = {
   deepseek: {
     envPrefix: "DEEPSEEK",
@@ -46,7 +66,13 @@ const COMPAT_PROVIDER_META: Record<
 /** Anthropic 协议提供商（MiniMax coding plan / Claude / 自定义 Anthropic 中转站） */
 const ANTHROPIC_PROVIDER_META: Record<
   "minimax" | "anthropic",
-  { envPrefix: string; defaultBase: string; defaultModel: string; label: string; needsBaseUrl: boolean }
+  {
+    envPrefix: string;
+    defaultBase: string;
+    defaultModel: string;
+    label: string;
+    needsBaseUrl: boolean;
+  }
 > = {
   minimax: {
     envPrefix: "MINIMAX",
@@ -66,7 +92,7 @@ const ANTHROPIC_PROVIDER_META: Record<
 
 function modelLabelFor(provider: AIProvider): { model: string; label: string } {
   if (provider === "gemini") {
-    const model = process.env.GEMINI_MODEL || "gemini-3.7-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const label = model
       .replace(/^gemini-/, "Gemini ")
       .replace(/-/g, " ")
@@ -106,13 +132,21 @@ function detectProvider(): AIProvider {
           : "gemini";
 }
 
-function resolveAIConfig(): { provider: AIProvider; model: string; label: string } {
+function resolveAIConfig(): {
+  provider: AIProvider;
+  model: string;
+  label: string;
+} {
   const provider = detectProvider();
   return { provider, ...modelLabelFor(provider) };
 }
 
 /** 主引擎失败时的兜底引擎：默认 MiniMax（模型由 MINIMAX_MODEL 自行配置） */
-function resolveFallbackConfig(): { provider: AIProvider; model: string; label: string } | null {
+function resolveFallbackConfig(): {
+  provider: AIProvider;
+  model: string;
+  label: string;
+} | null {
   const explicit = process.env.AI_FALLBACK_PROVIDER?.toLowerCase();
   let provider: AIProvider | null = null;
   if (
@@ -150,7 +184,10 @@ function getGeminiClient(): GoogleGenAI {
   return geminiClient;
 }
 
-async function generateWithGemini(opts: GenerateOptions, model: string): Promise<string> {
+async function generateWithGemini(
+  opts: GenerateOptions,
+  model: string,
+): Promise<GenerationResult> {
   const ai = getGeminiClient();
   const contents: any = opts.messages
     ? opts.messages.map((m) => ({
@@ -164,11 +201,16 @@ async function generateWithGemini(opts: GenerateOptions, model: string): Promise
     contents,
     config: {
       temperature: opts.temperature,
+      ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
       ...(opts.system ? { systemInstruction: opts.system } : {}),
       ...(opts.json ? { responseMimeType: "application/json" } : {}),
     },
   });
-  return response.text ?? "";
+  // finishReason=MAX_TOKENS 表示输出被 maxTokens 截断而非语法问题（审计 V-1）
+  const truncated =
+    String(response.candidates?.[0]?.finishReason ?? "").toUpperCase() ===
+    "MAX_TOKENS";
+  return { text: response.text ?? "", truncated };
 }
 
 // ---------- OpenAI 兼容后端（DeepSeek / MiniMax / 自定义中转站） ----------
@@ -181,9 +223,15 @@ function compatConfig(provider: "deepseek" | "openai"): {
   const meta = COMPAT_PROVIDER_META[provider];
   const apiKey = process.env[`${meta.envPrefix}_API_KEY`];
   if (!apiKey) {
-    throw new Error(`未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`);
+    throw new Error(
+      `未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`,
+    );
   }
-  const baseUrl = (process.env[`${meta.envPrefix}_BASE_URL`] || meta.defaultBase || "").replace(/\/+$/, "");
+  const baseUrl = (
+    process.env[`${meta.envPrefix}_BASE_URL`] ||
+    meta.defaultBase ||
+    ""
+  ).replace(/\/+$/, "");
   if (!baseUrl) {
     throw new Error(`未配置 ${meta.envPrefix}_BASE_URL，中转站地址不能为空`);
   }
@@ -197,8 +245,8 @@ function compatConfig(provider: "deepseek" | "openai"): {
 async function generateWithOpenAICompatible(
   provider: "deepseek" | "openai",
   opts: GenerateOptions,
-  model: string
-): Promise<string> {
+  model: string,
+): Promise<GenerationResult> {
   const { baseUrl, apiKey } = compatConfig(provider);
 
   const messages = [
@@ -232,15 +280,19 @@ async function generateWithOpenAICompatible(
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`${COMPAT_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(
+      `${COMPAT_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`,
+    );
   }
 
   const data: any = await res.json();
-  const content: string | undefined = data.choices?.[0]?.message?.content;
+  const choice = data.choices?.[0];
+  const content: string | undefined = choice?.message?.content;
   if (!content) {
     throw new Error(`${COMPAT_PROVIDER_META[provider].label} 返回内容为空`);
   }
-  return content;
+  // finish_reason=length 表示被 max_tokens 截断（审计 V-1）
+  return { text: content, truncated: choice?.finish_reason === "length" };
 }
 
 // ---------- Anthropic 兼容后端（MiniMax coding plan / Claude / 自定义中转站） ----------
@@ -253,9 +305,15 @@ function anthropicConfig(provider: "minimax" | "anthropic"): {
   const meta = ANTHROPIC_PROVIDER_META[provider];
   const apiKey = process.env[`${meta.envPrefix}_API_KEY`];
   if (!apiKey) {
-    throw new Error(`未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`);
+    throw new Error(
+      `未配置 ${meta.envPrefix}_API_KEY，无法使用 ${meta.label} 引擎`,
+    );
   }
-  const baseUrl = (process.env[`${meta.envPrefix}_BASE_URL`] || meta.defaultBase || "").replace(/\/+$/, "");
+  const baseUrl = (
+    process.env[`${meta.envPrefix}_BASE_URL`] ||
+    meta.defaultBase ||
+    ""
+  ).replace(/\/+$/, "");
   if (!baseUrl) {
     throw new Error(`未配置 ${meta.envPrefix}_BASE_URL，中转站地址不能为空`);
   }
@@ -269,23 +327,29 @@ function anthropicConfig(provider: "minimax" | "anthropic"): {
 async function generateWithAnthropic(
   provider: "minimax" | "anthropic",
   opts: GenerateOptions,
-  model: string
-): Promise<string> {
+  model: string,
+): Promise<GenerationResult> {
   const { baseUrl, apiKey } = anthropicConfig(provider);
 
-  const messages = (opts.messages
+  const messages = opts.messages
     ? opts.messages.map((m) => ({
         role: m.role === "user" ? "user" : "assistant",
         content: m.content,
       }))
-    : [{ role: "user", content: opts.prompt! }]);
+    : [{ role: "user", content: opts.prompt! }];
 
   const body: Record<string, unknown> = {
     model,
     max_tokens: opts.maxTokens || 4096,
     messages,
   };
-  if (opts.system) body.system = opts.system;
+  if (opts.system) {
+    // Anthropic 协议无原生 JSON mode（Gemini/OpenAI 兼容路径均有），
+    // JSON 约束只能靠 system 文本补强（审计 4.6）
+    body.system = opts.json
+      ? `${opts.system}\n\n输出格式硬性要求：只输出一个语法合法的 JSON 对象（以 { 开始、以 } 结束），不含任何解释文字或 markdown 代码块标记。`
+      : opts.system;
+  }
   if (typeof opts.temperature === "number") body.temperature = opts.temperature;
 
   const res = await fetch(`${baseUrl}/v1/messages`, {
@@ -300,7 +364,9 @@ async function generateWithAnthropic(
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`${ANTHROPIC_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(
+      `${ANTHROPIC_PROVIDER_META[provider].label} API ${res.status}: ${detail.slice(0, 300)}`,
+    );
   }
 
   const data: any = await res.json();
@@ -313,15 +379,22 @@ async function generateWithAnthropic(
   if (!text) {
     throw new Error(`${ANTHROPIC_PROVIDER_META[provider].label} 返回内容为空`);
   }
-  return text;
+  // stop_reason=max_tokens 表示被 max_tokens 截断（审计 V-1）
+  return { text, truncated: data.stop_reason === "max_tokens" };
 }
 
 // ---------- Unified dispatcher ----------
 
+/** 生成结果：truncated 区分「截断」与「语法错误」两种失败（审计 V-1） */
+interface GenerationResult {
+  text: string;
+  truncated: boolean;
+}
+
 async function generateWithProvider(
   cfg: { provider: AIProvider; model: string },
-  opts: GenerateOptions
-): Promise<string> {
+  opts: GenerateOptions,
+): Promise<GenerationResult> {
   switch (cfg.provider) {
     case "gemini":
       return generateWithGemini(opts, cfg.model);
@@ -336,7 +409,9 @@ async function generateWithProvider(
   }
 }
 
-async function generateText(opts: GenerateOptions): Promise<string> {
+async function generateDetailed(
+  opts: GenerateOptions,
+): Promise<GenerationResult> {
   if (!opts.prompt && !opts.messages?.length) {
     throw new Error("generateText 需要 prompt 或 messages");
   }
@@ -349,48 +424,86 @@ async function generateText(opts: GenerateOptions): Promise<string> {
       throw primaryError;
     }
     console.warn(
-      `[AI Fallback] 主引擎 ${AI_CONFIG.label} 调用失败（${primaryError?.message || primaryError}），切换到兜底引擎 ${fallback.label}`
+      `[AI Fallback] 主引擎 ${AI_CONFIG.label} 调用失败（${primaryError?.message || primaryError}），切换到兜底引擎 ${fallback.label}`,
     );
     return generateWithProvider(fallback, opts);
   }
 }
 
-/** Tolerant JSON parsing: strips markdown code fences & extracts the outer object. */
-function parseJsonLoose(text: string): any {
-  let cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    cleaned = cleaned.slice(start, end + 1);
-  }
-  return JSON.parse(cleaned);
+async function generateText(opts: GenerateOptions): Promise<string> {
+  return (await generateDetailed(opts)).text;
 }
 
-/** 生成严格 JSON：首次解析失败时，把错误反馈给模型重试一次（修复 SVG 未转义引号等常见问题）。 */
+/** 生成严格 JSON：首次解析失败时重试。修复请求携带完整上下文（原任务 + 完整上次输出），
+ *  避免模型只看到残缺片段而凭空重造后半段（对应审计 P1-6）。
+ *  截断与语法错误分开处理：截断时沿用同上限重试大概率再截断，
+ *  先附带精简指令重试一次，仍截断则报错终止，不再盲入修复回路（审计 V-1）。 */
 async function generateJsonSafely(
   prompt: string,
-  opts: { system?: string; temperature?: number; maxTokens?: number }
+  opts: { system?: string; temperature?: number; maxTokens?: number },
 ): Promise<any> {
-  const first = await generateText({ prompt, json: true, ...opts });
+  let first = await generateDetailed({ prompt, json: true, ...opts });
+  if (first.truncated) {
+    console.warn(
+      "[AI JSON] 输出达到 maxTokens 上限被截断，附加精简指令重试一次",
+    );
+    first = await generateDetailed({
+      prompt:
+        prompt +
+        "\n\n【输出长度硬约束】上一次输出因超过长度上限被截断。请在保持 JSON 结构与全部字段完整的前提下大幅精简内容：缩短题干、选项与解析文字，简化每个 SVG（保留可辨认的局部特征即可），确保完整输出。",
+      json: true,
+      ...opts,
+    });
+    if (first.truncated) {
+      throw new Error("生成内容超过长度上限被截断，请重试或稍后再试");
+    }
+  }
   try {
-    return parseJsonLoose(first);
+    return parseJsonLoose(first.text);
   } catch (e: any) {
     console.warn(
-      `[AI JSON] 首次解析失败: ${e.message}\n原始输出(前1500字):\n${first.slice(0, 1500)}`
+      `[AI JSON] 首次解析失败: ${e.message}\n原始输出(前1500字):\n${first.text.slice(0, 1500)}`,
     );
-    const repairPrompt = `你上一次输出的 JSON 无法解析，错误信息：${e.message}
+    const repairInstruction = `你上一次输出的 JSON 无法解析，错误信息：${e.message}
 
-【上次输出（前 2500 字符）】
-${first.slice(0, 2500)}
-
-请重新输出【完整的、严格的 JSON】，要求：
+请重新输出【完整的、严格的 JSON】：原样保留正确内容，只修复语法错误（未转义引号、未闭合括号等）。要求：
 - 不要任何多余文字、注释或 markdown 代码块标记。
-- 所有字符串用双引号包裹；字符串内部若出现双引号必须转义为 \"。
+- 所有字符串用双引号包裹；字符串内部若出现双引号必须转义为 "。
 - SVG 字符串内部属性一律用单引号，例如 "svg": "<svg viewBox='0 0 100 100'><rect x='10' width='80' height='80'/></svg>"。
-- 确保 JSON 完整闭合。`;
-    const second = await generateText({ prompt: repairPrompt, json: true, ...opts });
-    return parseJsonLoose(second);
+- 确保 JSON 完整闭合，并适当精简过长字段避免再次截断。`;
+    const second = await generateDetailed({
+      messages: [
+        { role: "user", content: prompt },
+        { role: "model", content: first.text },
+        { role: "user", content: repairInstruction },
+      ],
+      json: true,
+      ...opts,
+    });
+    if (second.truncated) {
+      throw new Error("修复重试的输出仍超过长度上限被截断，请重试");
+    }
+    return parseJsonLoose(second.text);
   }
+}
+
+/** 兑底链路复杂度校验：绘制指令数阈值，防止「简单单一形状」退回（阶段五 5.4） */
+const DRAW_COMMAND_TAGS =
+  /<(rect|circle|ellipse|line|polyline|polygon|path)\b/g;
+
+function drawCommands(svg: string): number {
+  return (svg.match(DRAW_COMMAND_TAGS) || []).length;
+}
+
+function legacyGraphicComplexityOk(parsed: any): boolean {
+  const figs: any[] = parsed?.stemFigures || [];
+  const opts: any[] = parsed?.options || [];
+  if (figs.length < 2) return false;
+  return (
+    figs.every((f) => drawCommands(String(f?.svg || "")) >= 2) &&
+    opts.every((o) => drawCommands(String(o?.svg || "")) >= 1) &&
+    figs.reduce((sum, f) => sum + drawCommands(String(f?.svg || "")), 0) >= 10
+  );
 }
 
 async function startServer() {
@@ -414,44 +527,22 @@ async function startServer() {
   // AI Detailed Question Explanation & Mindmap
   app.post("/api/ai/explain", async (req, res) => {
     try {
-      const { question, selectedOption, userNote } = req.body;
+      const { question, selectedOption } = req.body;
+      // userNote 是用户自由输入，进 prompt 前做长度封顶（内容按数据段处理，防注入声明在提示词侧）
+      const userNote =
+        typeof req.body.userNote === "string"
+          ? req.body.userNote.slice(0, 2000)
+          : undefined;
       if (!question) {
         return res.status(400).json({ error: "缺少题目信息" });
       }
 
-      const prompt = `你是一位顶级大厂测评/公考行测名师兼 AI 学习教练。请对以下测评题目进行深度拆解和保姆级教学。
-
-【题目信息】
-- 题型：${question.category === 'verbal' ? '言语理解与推理' : question.category === 'data' ? '资料分析与计算' : '图形推理空间思维'}
-- 具体考点：${question.subCategory || '核心考点'}
-- 难度：${question.difficulty || '未知'}
-
-【题干】
-${question.stem}
-${question.stemImages?.length ? `（题面配图：${question.stemImages.length} 张，已在前端渲染，无需重复描述图片内容）` : ''}
-
-【选项】
-${question.options?.map((opt: any) => `${opt.key}: ${opt.content}`).join('\n')}
-
-【官方正确答案】${question.correctAnswer}
-【用户所选答案】${selectedOption || '未作答'}
-${userNote ? `【用户疑问/笔记】${userNote}` : ''}
-
-请以结构化、生动易懂的 Markdown 格式输出以下内容（标题用粗体，关键结论用加粗/列表突出，避免冗长）：
-1. 🎯 **考点透析与破题眼**：一句话直击本题考查的核心思维模型与切入点。
-2. 💡 **思维链完整推导 (Step-by-Step CoT)**：
-   - 言语题：找出关键词/关联词/中心句，说明排除与选择的完整逻辑链。
-   - 资料题：列公式 → 代入数字 → 秒算技巧（百化分、截位直除、放缩法）→ 得出答案。
-   - 图推题：先描述“第一眼特征”（元素组成相似/凌乱、黑白色块、对称性），再给出每一步变化规律。
-3. ❌ **易错选项排雷**：逐项说明干扰项错误类型（偷换概念/无中生有/强加因果/计算陷阱/视觉误导）。
-4. 🚀 **秒杀口诀与同类题避坑指南**：一句好记的秒杀法则 + 遇到同类题应优先验证什么。
-5. 📝 **举一反三变式思考**：给出一个考查相同原理的变形思路，帮助用户迁移。`;
-
+      const prompt = buildExplainPrompt(question, selectedOption, userNote);
       const explanation = await generateText({
         prompt,
-        system:
-          "你是一位专业、循循善诱的北森测评与行测大厂题库专家。你的讲解必须基于题目给出的真实数据与选项，绝不编造题干不存在的数字或图形；输出使用清晰的 Markdown 结构、加粗重点、分步推导，像一位耐心的名师带学生复盘。始终以「AI 学习导师」自称，不要提及或透露底层模型、服务商或引擎名称。",
-        temperature: 0.4,
+        system: PROMPT_TASKS.explain.system,
+        temperature: PROMPT_TASKS.explain.temperature,
+        maxTokens: PROMPT_TASKS.explain.maxTokens,
       });
 
       res.json({ explanation });
@@ -472,33 +563,12 @@ ${userNote ? `【用户疑问/笔记】${userNote}` : ''}
         return res.status(400).json({ error: "缺少图推题目信息" });
       }
 
-      const prompt = `你是一位专注于图形推理（图推）的资深教练。针对以下图形推理题，请提供一套系统化的“视觉解构与规律提炼”，像真实教学一样一步一步拆解。
-
-【题型归类】${question.subCategory}
-【难度】${question.difficulty || '未知'}
-【题干描述】
-${question.stem}
-${question.stemImages?.length ? `（题面配图共 ${question.stemImages.length} 张，已在前端展示）` : ''}
-${question.explanation ? `【标准解析参考】${question.explanation}` : '（无官方解析，请独立推演）'}
-
-【选项】
-${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图形'}`).join('\n')}
-【正确答案】${question.correctAnswer}
-
-请详细输出 Markdown 格式：
-1. 🔍 **第一视觉特征（一眼定规律）**：拿到题先看什么——元素组成相似看位置/叠加，组成凌乱看数量/属性，黑白分明看位运算，三视图/展开图看空间。
-2. 📐 **规律演化逐图拆解**：
-   - 明确规律维度（点、线、角、面、素、位移、旋转、翻转、叠加相消、对称性、笔画数、封闭空间等）。
-   - 写出每一步演化公式（如 图1 + 图2 − 重叠部分 = 图3；顺时针步长 2；每列黑白异或）。
-3. ⚡ **十秒秒杀与排除法**：如何用局部特征（小黑点/折角/奇偶笔画/单一线条）快速排除干扰项，并说明每个错误选项错在哪。
-4. 🧠 **思维内化口诀**：总结一条针对该类图形规律的记忆金句。
-5. 🧩 **同类题迁移预判**：遇到什么特征时应优先套用该规律。`;
-
+      const prompt = buildGraphicPatternPrompt(question);
       const analysis = await generateText({
         prompt,
-        system:
-          "你是图形推理教学专家，擅长把抽象规律拆成可验证的步骤。回答必须紧扣题目真实图形信息，不编造不存在的变化；用 Markdown 结构、加粗重点、分步列表输出。始终以「AI 学习导师」自称，不要提及或透露底层模型、服务商或引擎名称。",
-        temperature: 0.3,
+        system: PROMPT_TASKS.graphicPattern.system,
+        temperature: PROMPT_TASKS.graphicPattern.temperature,
+        maxTokens: PROMPT_TASKS.graphicPattern.maxTokens,
       });
 
       res.json({ analysis });
@@ -521,101 +591,117 @@ ${question.options?.map((opt: any) => `${opt.key}: ${opt.content || '选项图�
 
       const isData = originalQuestion.category === "data";
       const isGraphic = originalQuestion.category === "graphic";
+      const subCategory = originalQuestion.subCategory || "";
+      const optionCount = originalQuestion.options?.length || 4;
+      // covered 考点走 spec → renderer：图形由代码确定性渲染并机械验证；
+      // 未覆盖考点走旧「模型直出 SVG」+ 复杂度兜底
+      const specPath =
+        isGraphic && !!SUB_CATEGORY_KINDS[subCategory] && optionCount === 4;
 
-      const categoryRules = isData
-        ? `- 你必须额外生成一个 **chart** 对象：与题干自洽的统计图/表格，且所有数值必须可直接读出。
-- chart.type 允许：bar（柱状图）、line（折线图）、pie（饼图）、table（数据表）。
-- 柱状/折线：chart.categories 为横轴分类，chart.series 为 1~3 组序列 { name, data }。
-- 饼图：chart.categories 为扇区名称，chart.series 仅 1 组。
-- 表格：chart.columns 为列头数组，chart.rows 为行数据数组。
-- 每个 chart 都需有 title 与 unit；题干、选项、解析中的数字必须能在 chart 中直接查到，绝不出现“鼠标悬停才能看到”或题面未提供的数据。`
-        : isGraphic
-          ? `- 必须生成真实、复杂、可直接渲染的 SVG 图形（禁止只用文字描述图形）。
-- 每个 SVG 必须是完整字符串，viewBox="0 0 100 100"，只能使用 rect/circle/ellipse/line/polyline/polygon/path/g 等基础元素；SVG 内部属性一律用单引号，保证 JSON 合法；不得包含 <script>、<image>、外链或动画。
-- JSON 字符串值内的双引号必须转义（写成反斜杠加双引号）；SVG 属性优先用单引号，避免出现未转义双引号。
-- 题干用 stemFigures 给出 2~4 个图形的演化序列（label 依次为图1/图2/图3…）；选项 A-E 每个都要有独立 svg。
-- 图形复杂度对标北森真题：必须有清晰局部特征（黑点/箭头/折角/斜线/黑白块/旋转步长/叠加消去痕迹），而不是简单单一形状。
-- 保持与母题相同的图形规律类别（${originalQuestion.subCategory || '图形规律'}），但换一套全新图形元素。`
-          : `- 言语题保持相同考点（${originalQuestion.subCategory || '言语考点'}）与解题逻辑，换一篇全新文段，题干与选项语气、长度、干扰项手法与真题一致。`;
+      const answerKey = pickAnswerKey(originalQuestion);
+      const prompt = buildVariantPrompt(originalQuestion, { answerKey });
+      let parsed = await generateJsonSafely(prompt, {
+        system: PROMPT_TASKS.variant.system,
+        temperature: PROMPT_TASKS.variant.temperature,
+        maxTokens: PROMPT_TASKS.variant.maxTokens,
+      });
 
-      // 资料分析变式：要求 AI 输出可直接渲染的统计图 schema
-      const chartSchema = isData
-        ? `  "chart": {
-    "type": "bar",
-    "title": "图表标题",
-    "unit": "单位（如万元、%、万人）",
-    "categories": ["2019", "2020", "2021", "2022"],
-    "series": [{ "name": "销售额", "data": [100, 120, 150, 180] }]
-  },
-`
-        : '';
+      if (specPath) {
+        const specError = validateRuleSpec(parsed?.ruleSpec);
+        if (specError) {
+          throw new Error(`AI 生成的 ruleSpec 非法：${specError}`);
+        }
+        if (parsed.ruleSpec.correctAnswer !== answerKey) {
+          throw new Error(
+            `AI 生成的 ruleSpec.correctAnswer 应为 ${answerKey}，实际 ${parsed.ruleSpec.correctAnswer}`,
+          );
+        }
+        const rendered = renderVariant(parsed.ruleSpec, optionCount);
+        const verifyError = verifyVariant(parsed.ruleSpec, rendered);
+        if (verifyError) {
+          throw new Error(`图推变式自洽校验失败：${verifyError}`);
+        }
+        parsed.stemFigures = rendered.stemFigures;
+        parsed.options = rendered.options;
+        parsed.correctAnswer = parsed.ruleSpec.correctAnswer;
+      } else if (isGraphic) {
+        // 兜底链路：复杂度不达标带反馈重试一次（阶段五 5.4）
+        if (!legacyGraphicComplexityOk(parsed)) {
+          parsed = await generateJsonSafely(
+            `${prompt}\n\n【上一次生成被退回】图形过于简单：每张题干图至少 2 个绘制元素、每个选项至少 1 个、题干合计至少 10 个绘制元素。请显著增加图形复杂度后重新输出完整 JSON。`,
+            {
+              system: PROMPT_TASKS.variant.system,
+              temperature: PROMPT_TASKS.variant.temperature,
+              maxTokens: PROMPT_TASKS.variant.maxTokens,
+            },
+          );
+          if (!legacyGraphicComplexityOk(parsed)) {
+            throw new Error("AI 生成的图形复杂度不达标，请重试");
+          }
+        }
+      }
 
-      // 图形推理变式：要求 AI 输出可渲染的 SVG 图形序列与选项图形
-      const graphicJsonExample = isGraphic
-        ? `  "stemFigures": [
-    { "label": "图1", "svg": "<svg viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='#000' stroke-width='3'/><circle cx='50' cy='50' r='12' fill='#000'/></svg>" },
-    { "label": "图2", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
-    { "label": "图3", "svg": "<svg viewBox='0 0 100 100'>…</svg>" }
-  ],
-  "options": [
-    { "key": "A", "content": "选项A图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
-    { "key": "B", "content": "选项B图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
-    { "key": "C", "content": "选项C图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" },
-    { "key": "D", "content": "选项D图形简述", "svg": "<svg viewBox='0 0 100 100'>…</svg>" }
-  ],
-`
-        : '';
+      // SVG 兜底清洗：前端 dangerouslySetInnerHTML 直注，提示词约束不能作为唯一防线
+      sanitizeVariantSvgs(parsed);
 
-      const prompt = `请根据以下母题的考点和逻辑难度，智能生成一道【全新但考查相同核心逻辑/规律】的高质量变式题，用于用户举一反三练习。
+      // 选项契约：数量与母题一致（题库存在 5 选项题）、key 不重复、correctAnswer 必须命中
+      const variantOptions = parsed.options;
+      if (!Array.isArray(variantOptions) || variantOptions.length === 0) {
+        throw new Error("AI 生成的变式题缺少选项，请重试");
+      }
+      const expectedCount = originalQuestion.options?.length;
+      if (expectedCount && variantOptions.length !== expectedCount) {
+        throw new Error(
+          `AI 生成的选项数量应为 ${expectedCount} 个，实际 ${variantOptions.length} 个，请重试`,
+        );
+      }
+      const optionKeys = variantOptions.map((o: any) => o?.key);
+      if (new Set(optionKeys).size !== optionKeys.length) {
+        throw new Error("AI 生成的选项 key 重复，请重试");
+      }
+      if (!optionKeys.includes(parsed.correctAnswer)) {
+        throw new Error("AI 生成的 correctAnswer 不在选项 key 中，请重试");
+      }
 
-【母题信息】
-- 题型：${originalQuestion.categoryName || originalQuestion.category}
-- 考点：${originalQuestion.subCategory}
-- 难度：${originalQuestion.difficulty || '未知'}
-- 母题题干：${originalQuestion.stem}
-- 核心规律/公式：${originalQuestion.explanation || '见原题考点'}
-
-【变式生成规则】
-${categoryRules}
-- 选项数量与母题一致（${originalQuestion.options?.length || 4} 个），干扰项必须具有真实迷惑性。
-- 解析要给出完整推导，若含计算请列公式并代入数字。
-
-【必须输出的标准 JSON 格式】
-{
-  "stem": "完整题干（${isData ? '题干需明确“根据图表回答问题”' : ''}）",
-  "category": "${originalQuestion.category}",
-  "subCategory": "${originalQuestion.subCategory}",
-  "difficulty": "${originalQuestion.difficulty || 'medium'}",
-${chartSchema}${graphicJsonExample}  "options": [
-    { "key": "A", "content": "选项A内容" },
-    { "key": "B", "content": "选项B内容" },
-    { "key": "C", "content": "选项C内容" },
-    { "key": "D", "content": "选项D内容" }
-  ],
-  "correctAnswer": "A或B或C或D",
-  "explanation": "清晰严谨的详细推导解析与秒杀技巧"
-}`;
-
-      const parsed = await generateJsonSafely(prompt, { temperature: 0.7, maxTokens: 8192 });
       if (isData && parsed.chart) {
-        // 轻量校验：确保图表数据结构完整，前端可直接渲染
+        // 轻量校验：确保图表数据结构完整且可对齐渲染，前端可直接消费
         const c = parsed.chart;
-        if (!c.type || !c.title) throw new Error("AI 生成的图表缺少 type/title");
+        if (!c.type || !c.title)
+          throw new Error("AI 生成的图表缺少 type/title");
         if (c.type === "table") {
-          if (!Array.isArray(c.columns) || !Array.isArray(c.rows)) throw new Error("AI 生成的表格数据不完整");
+          if (!Array.isArray(c.columns) || !Array.isArray(c.rows))
+            throw new Error("AI 生成的表格数据不完整");
         } else {
-          if (!Array.isArray(c.categories) || !Array.isArray(c.series) || !c.series[0]?.data) {
+          if (
+            !Array.isArray(c.categories) ||
+            !Array.isArray(c.series) ||
+            !c.series[0]?.data
+          ) {
             throw new Error("AI 生成的图表数据不完整");
+          }
+          // series 与 categories 长度必须一致：前端按位置对齐渲染，缺数据点会画出值为 0 的错图
+          for (const s of c.series) {
+            if (
+              !Array.isArray(s?.data) ||
+              s.data.length !== c.categories.length
+            ) {
+              throw new Error(
+                `AI 生成的图表 series「${s?.name || "?"}」数据点数（${s?.data?.length}）与分类数（${c.categories.length}）不一致，请重试`,
+              );
+            }
           }
         }
       }
       if (isGraphic) {
         const figs = parsed.stemFigures;
-        const opts = parsed.options;
-        if (!Array.isArray(figs) || figs.length < 2 || figs.some((f: any) => !f?.svg)) {
+        if (
+          !Array.isArray(figs) ||
+          figs.length < 2 ||
+          figs.some((f: any) => !f?.svg)
+        ) {
           throw new Error("AI 生成的图推变式缺少题干图形序列(SVG)，请重试");
         }
-        if (!Array.isArray(opts) || opts.some((o: any) => !o?.svg)) {
+        if (variantOptions.some((o: any) => !o?.svg)) {
           throw new Error("AI 生成的图推变式缺少选项图形(SVG)，请重试");
         }
       }
@@ -634,28 +720,12 @@ ${chartSchema}${graphicJsonExample}  "options": [
     try {
       const { mistakeSummary, stats } = req.body;
 
-      const prompt = `你是一位顶尖测评教学数据分析师兼考研/大厂测评命题研究员。根据该考生的真实练习数据和错题集，进行多维度学情深度诊断，并生成专属提分策略报告。
-
-【考生真实数据概览】
-- 总做题数：${stats?.totalAnswered || 0}
-- 整体正确率：${stats?.accuracy || 0}%
-- 言语理解正确率：${stats?.verbalAccuracy || 0}%
-- 资料分析正确率：${stats?.dataAccuracy || 0}%
-- 图形推理正确率：${stats?.graphicAccuracy || 0}%
-
-【错题考点分布与典型错题记录】
-${JSON.stringify(mistakeSummary || [], null, 2)}
-
-请输出 Markdown 格式的专业诊断报告（禁止编造数据，所有结论必须从上面真实数据推出）：
-1. 📊 **能力画像与薄弱短板诊断**（针对三大板块得分瓶颈，指出最需优先提升的 2 个考点）。
-2. ⚠️ **典型思维误区预警**（结合具体错题分析考生掉入的认知陷阱：忽略极端词/图推盲目数线/资分乘除粗心/单位看错等）。
-3. 💊 **个性化专项提分处方（7天突破规划）**：按“今天/第2-3天/第4-5天/第6-7天”拆解，每天给具体可执行的刷题与复盘动作。
-4. 🚦 **下次做题时的“三秒检查清单”**：给出 3~5 条可立即执行的避错提醒。
-5. 🌟 **专属鼓励与心态建议**（真诚、具体，不写空话）。`;
-
+      const prompt = buildDiagnosePrompt(mistakeSummary, stats);
       const diagnosis = await generateText({
         prompt,
-        temperature: 0.5,
+        system: PROMPT_TASKS.diagnose.system,
+        temperature: PROMPT_TASKS.diagnose.temperature,
+        maxTokens: PROMPT_TASKS.diagnose.maxTokens,
       });
 
       res.json({ diagnosis });
@@ -672,37 +742,27 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
   app.post("/api/ai/chat", async (req, res) => {
     try {
       const { messages, currentQuestionContext } = req.body;
+      // 题目上下文作为首条 user 消息注入，而非拼进 system：规则独占 system，
+      // 不可信题面数据（OCR 噪声）不得借 system 指令权重（审计 C-1）
+      const contextMessage = buildChatContextMessage(currentQuestionContext);
 
-      let system = `你是一位全能耐心的北森/大厂测评与行测智能辅导导师。
-职责：解答用户在做题过程中的各种疑问（言语语感、成语辨析、资料分析公式速算、图形推理空间规律等）。
-
-回答规范：
-- 紧扣题目真实数据，不编造题干未提供的数字或图形。
-- 用户问“为什么不选X”时，必须逐项对比各选项，指出错误类型（无中生有/偷换概念/计算陷阱/视觉误导）。
-- 涉及计算时，列公式、代入数字、展示完整计算过程。
-- 语气专业幽默、严谨清晰，善用 Markdown 排版、加粗重点、分点列表；篇幅根据问题复杂度控制，不啰嗦。
-- 始终以「AI 学习导师」自称，不要提及或透露底层模型、服务商或引擎名称。`;
-
-      if (currentQuestionContext) {
-        system += `\n\n【用户当前正在查看的题目上下文】
-类别：${currentQuestionContext.categoryName || currentQuestionContext.category} - ${currentQuestionContext.subCategory}
-难度：${currentQuestionContext.difficulty || '未知'}
-题干：${currentQuestionContext.stem}
-选项：${currentQuestionContext.options?.map((o: any) => `${o.key}: ${o.content}`).join('; ')}
-正确答案：${currentQuestionContext.correctAnswer}
-官方解析：${currentQuestionContext.explanation || '无'}
-请结合上述题目上下文为用户解答；若用户问题与该题无关，就按通用导师角色正常回答。`;
-      }
-
-      const turns: ChatTurn[] = (messages || []).map((m: any) => ({
-        role: m.role === "user" ? "user" : "model",
-        content: String(m.content ?? ""),
-      }));
+      // 只保留最近若干轮：题目上下文已在首条消息中，历史线性膨胀只会推高成本与延迟
+      const MAX_CHAT_TURNS = 16;
+      const turns: ChatTurn[] = ((messages || []) as any[])
+        .map((m) => ({
+          role: m.role === "user" ? ("user" as const) : ("model" as const),
+          content: String(m.content ?? ""),
+        }))
+        .filter((m) => m.content)
+        .slice(-MAX_CHAT_TURNS);
 
       const reply = await generateText({
-        messages: turns,
-        system,
-        temperature: 0.5,
+        messages: contextMessage
+          ? [{ role: "user" as const, content: contextMessage }, ...turns]
+          : turns,
+        system: PROMPT_TASKS.chat.system,
+        temperature: PROMPT_TASKS.chat.temperature,
+        maxTokens: PROMPT_TASKS.chat.maxTokens,
       });
 
       res.json({ reply });
@@ -716,26 +776,30 @@ ${JSON.stringify(mistakeSummary || [], null, 2)}
   });
 
   // Vite middleware setup
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
+  if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
+  } else {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
   }
 
   app.listen(PORT, "0.0.0.0", () => {
     const fallback = resolveFallbackConfig();
     console.log(`Server running on http://0.0.0.0:${PORT}`);
-    console.log(`AI engine: ${AI_CONFIG.label} (${AI_CONFIG.provider}/${AI_CONFIG.model})`);
+    console.log(
+      `AI engine: ${AI_CONFIG.label} (${AI_CONFIG.provider}/${AI_CONFIG.model})`,
+    );
     if (fallback) {
-      console.log(`AI fallback: ${fallback.label} (${fallback.provider}/${fallback.model})`);
+      console.log(
+        `AI fallback: ${fallback.label} (${fallback.provider}/${fallback.model})`,
+      );
     }
   });
 }

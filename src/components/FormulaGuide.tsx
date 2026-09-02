@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { formulaBank } from '../data/formulaBank';
 import {
   Award,
@@ -26,8 +27,8 @@ export const FormulaGuide: React.FC = () => {
   const numXianQi = parseFloat(calcXianQi) || 0;
   const numGrowth = parseFloat(calcGrowth) || 0;
   const rDecimal = numGrowth / 100;
-  const basePeriod = rDecimal !== -1 ? (numXianQi / (1 + rDecimal)).toFixed(2) : '0';
-  const growthAmount = rDecimal !== -1 ? ((numXianQi * rDecimal) / (1 + rDecimal)).toFixed(2) : '0';
+  const basePeriod = rDecimal === -1 ? '0' : (numXianQi / (1 + rDecimal)).toFixed(2);
+  const growthAmount = rDecimal === -1 ? '0' : ((numXianQi * rDecimal) / (1 + rDecimal)).toFixed(2);
 
   // Two-period proportion difference
   const numA = parseFloat(calcA) || 0;
@@ -61,7 +62,7 @@ export const FormulaGuide: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-bold font-display text-[#26201a]">
-              北森测评高频考点与速算公式宝典
+              上岸测评高频考点与速算公式宝典
             </h2>
             <p className="text-xs sm:text-sm text-[#786c5e]">
               资料分析秒杀模型 · 图形推理考点口诀 · 言语理解逻辑抓手

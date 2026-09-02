@@ -1,6 +1,6 @@
-type QuestionCategory = 'verbal' | 'data' | 'graphic';
+type QuestionCategory = "verbal" | "data" | "graphic";
 
-type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+type QuestionDifficulty = "easy" | "medium" | "hard";
 
 export interface OptionItem {
   key: string; // 'A' | 'B' | 'C' | 'D' | 'E'
@@ -21,13 +21,39 @@ export interface Question {
   explanation: string;
 }
 
-export interface UserAnswerRecord {
+export interface AIVariantOption extends OptionItem {
+  svg?: string; // 图推变式的选项图形
+}
+
+/** AI 举一反三生成的变式题：独立于真题库，持久化到本地 AI 题库 */
+export interface AIQuestion extends Question {
+  options: AIVariantOption[];
+  chart?: {
+    type: "bar" | "line" | "pie" | "table";
+    title?: string;
+    unit?: string;
+    categories?: string[];
+    series?: { name: string; data: number[] }[];
+    columns?: string[];
+    rows?: (string | number)[][];
+  };
+  stemFigures?: { label: string; svg: string }[];
+  sourceQuestionId?: string;
+  sourceQuestionStem?: string;
+  createdAt: string;
+}
+
+/** 单次作答记录（append-only 历史轨迹，用于学情趋势与作息热力图） */
+export interface AnswerAttempt {
   questionId: string;
   userAnswer: string;
   isCorrect: boolean;
   timeSpentSec: number;
   answeredAt: string;
 }
+
+/** 每题最新一次作答（全站统计口径：answerAttempts 派生） */
+export interface UserAnswerRecord extends AnswerAttempt {}
 
 interface CategoryStatItem {
   total: number;
@@ -48,4 +74,11 @@ export interface StudyStats {
   mistakeIds: string[];
 }
 
-export type ActiveTab = 'practice' | 'graphic-lab' | 'exam' | 'mistakes' | 'analytics' | 'cheatsheet';
+export type ActiveTab =
+  | "practice"
+  | "graphic-lab"
+  | "exam"
+  | "mistakes"
+  | "analytics"
+  | "cheatsheet"
+  | "ai-bank";

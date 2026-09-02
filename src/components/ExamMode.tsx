@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Question, StudyStats, UserAnswerRecord } from '../types';
-import { allQuestions } from '../data/allQuestions';
-import { QuestionCard } from './QuestionCard';
+import type React from "react";
+import { useState, useEffect, useRef } from "react";
+import type { Question, StudyStats, UserAnswerRecord } from "../types";
+import { allQuestions } from "../data/allQuestions";
+import { QuestionCard } from "./QuestionCard";
 import {
   Timer,
   CheckCircle2,
@@ -11,10 +12,13 @@ import {
   ArrowLeft,
   BookMarked,
   Clock,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface ExamModeProps {
-  onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat', q?: Question) => void;
+  onOpenAI: (
+    tab: "explain" | "graphic" | "variant" | "chat",
+    q?: Question,
+  ) => void;
   onRecordAnswer: (record: UserAnswerRecord) => void;
   onAddMistake: (qId: string) => void;
   favorites: string[];
@@ -39,7 +43,9 @@ export const ExamMode: React.FC<ExamModeProps> = ({
   const [examStarted, setExamStarted] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
   const [examLength, setExamLength] = useState<number>(10);
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'verbal' | 'data' | 'graphic'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<
+    "all" | "verbal" | "data" | "graphic"
+  >("all");
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,13 +53,32 @@ export const ExamMode: React.FC<ExamModeProps> = ({
   const [markedQuestions, setMarkedQuestions] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 min default
   const [totalTimeSpent, setTotalTimeSpent] = useState<number>(0);
+  const [questionTimes, setQuestionTimes] = useState<Record<string, number>>(
+    {},
+  );
 
   const timerRef = useRef<any>(null);
+  // 计时器与作答状态用 ref 同步，避免倒计时到点触发时拿到旧闭包（真实用时不能丢）
+  const answersRef = useRef(answers);
+  const questionTimesRef = useRef(questionTimes);
+  const totalTimeSpentRef = useRef(totalTimeSpent);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    questionTimesRef.current = questionTimes;
+  }, [questionTimes]);
+
+  useEffect(() => {
+    totalTimeSpentRef.current = totalTimeSpent;
+  }, [totalTimeSpent]);
 
   // Start Exam Setup
   const handleStartExam = () => {
     let pool = [...allQuestions];
-    if (selectedCategory !== 'all') {
+    if (selectedCategory !== "all") {
       pool = pool.filter((q) => q.category === selectedCategory);
     }
     // Shuffle pool
@@ -64,6 +89,7 @@ export const ExamMode: React.FC<ExamModeProps> = ({
     setCurrentIndex(0);
     setAnswers({});
     setMarkedQuestions([]);
+    setQuestionTimes({});
     const allocatedTime = selected.length * 60; // 60s per question
     setTimeLeft(allocatedTime);
     setTotalTimeSpent(0);
@@ -94,16 +120,20 @@ export const ExamMode: React.FC<ExamModeProps> = ({
     if (timerRef.current) clearInterval(timerRef.current);
     setExamFinished(true);
 
+    const finalAnswers = answersRef.current;
+    const finalQuestionTimes = questionTimesRef.current;
+
     // Record each answer into global stats
     questions.forEach((q) => {
-      const userAns = answers[q.id];
+      const userAns = finalAnswers[q.id];
       if (userAns) {
         const isCorrect = userAns === q.correctAnswer;
         onRecordAnswer({
           questionId: q.id,
           userAnswer: userAns,
           isCorrect,
-          timeSpentSec: Math.round(totalTimeSpent / questions.length) || 30,
+          // 未逐题计时的题记 0，不冒充真实用时（学情看板均时只统计 >0 的作答）
+          timeSpentSec: finalQuestionTimes[q.id] || 0,
           answeredAt: new Date().toISOString(),
         });
         if (!isCorrect) {
@@ -117,26 +147,35 @@ export const ExamMode: React.FC<ExamModeProps> = ({
 
   // Calculate Exam Stats
   const answeredCount = Object.keys(answers).length;
-  const correctCount = questions.filter((q) => answers[q.id] === q.correctAnswer).length;
-  const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const correctCount = questions.filter(
+    (q) => answers[q.id] === q.correctAnswer,
+  ).length;
+  const score =
+    questions.length > 0
+      ? Math.round((correctCount / questions.length) * 100)
+      : 0;
 
   // Format time
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
   // Category breakdown for Score Report
-  const categoryStats = ['verbal', 'data', 'graphic'].map((cat) => {
+  const categoryStats = ["verbal", "data", "graphic"].map((cat) => {
     const catQs = questions.filter((q) => q.category === cat);
-    const catCorrect = catQs.filter((q) => answers[q.id] === q.correctAnswer).length;
-    const catName = cat === 'verbal' ? '言语理解' : cat === 'data' ? '资料分析' : '图形推理';
+    const catCorrect = catQs.filter(
+      (q) => answers[q.id] === q.correctAnswer,
+    ).length;
+    const catName =
+      cat === "verbal" ? "言语理解" : cat === "data" ? "资料分析" : "图形推理";
     return {
       category: catName,
       total: catQs.length,
       correct: catCorrect,
-      accuracy: catQs.length > 0 ? Math.round((catCorrect / catQs.length) * 100) : 0,
+      accuracy:
+        catQs.length > 0 ? Math.round((catCorrect / catQs.length) * 100) : 0,
     };
   });
 
@@ -153,14 +192,16 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               全真限时模拟考场
             </h2>
             <p className="text-xs sm:text-sm text-[#786c5e]">
-              严格按照真实北森测评考试时间与难度出题，独立完成所有作答，交卷后即出成绩报告与详细题解。
+              严格按照真实上岸测评考试时间与难度出题，独立完成所有作答，交卷后即出成绩报告与详细题解。
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto">
             {/* Exam Length */}
             <div className="p-4 bg-[#f8f3e8] rounded-xl border border-[#e3d8c2] space-y-2">
-              <label className="block text-xs font-semibold text-[#4a3e31]">题量选择：</label>
+              <label className="block text-xs font-semibold text-[#4a3e31]">
+                题量选择：
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 {[5, 10, 15].map((len) => (
                   <button
@@ -168,8 +209,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                     onClick={() => setExamLength(len)}
                     className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       examLength === len
-                        ? 'bg-[#b45309] text-white shadow-xs'
-                        : 'bg-[#fffdfa] border border-[#ded3be] text-[#4a3e31] hover:bg-[#f3ead7]'
+                        ? "bg-[#b45309] text-white shadow-xs"
+                        : "bg-[#fffdfa] border border-[#ded3be] text-[#4a3e31] hover:bg-[#f3ead7]"
                     }`}
                   >
                     {len} 题 ({len}分钟)
@@ -180,7 +221,9 @@ export const ExamMode: React.FC<ExamModeProps> = ({
 
             {/* Category Range */}
             <div className="p-4 bg-[#f8f3e8] rounded-xl border border-[#e3d8c2] space-y-2">
-              <label className="block text-xs font-semibold text-[#4a3e31]">科目范围：</label>
+              <label className="block text-xs font-semibold text-[#4a3e31]">
+                科目范围：
+              </label>
               <select
                 value={selectedCategory}
                 onChange={(e: any) => setSelectedCategory(e.target.value)}
@@ -216,14 +259,19 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                 考试进行中
               </span>
               <span className="text-xs text-[#ded3be]">
-                进度: <strong>{currentIndex + 1}</strong> / {questions.length} (已答 {answeredCount} 题)
+                进度: <strong>{currentIndex + 1}</strong> / {questions.length}{" "}
+                (已答 {answeredCount} 题)
               </span>
             </div>
 
             {/* Countdown Clock */}
             <div className="flex items-center gap-2">
-              <Clock className={`w-4 h-4 ${timeLeft < 120 ? 'text-[#f87171] animate-pulse' : 'text-[#fbbf24]'}`} />
-              <span className={`font-mono text-base font-bold ${timeLeft < 120 ? 'text-[#f87171] animate-pulse' : 'text-[#fef08a]'}`}>
+              <Clock
+                className={`w-4 h-4 ${timeLeft < 120 ? "text-[#f87171] animate-pulse" : "text-[#fbbf24]"}`}
+              />
+              <span
+                className={`font-mono text-base font-bold ${timeLeft < 120 ? "text-[#f87171] animate-pulse" : "text-[#fef08a]"}`}
+              >
                 {formatTime(timeLeft)}
               </span>
             </div>
@@ -231,7 +279,11 @@ export const ExamMode: React.FC<ExamModeProps> = ({
             {/* Submit Button */}
             <button
               onClick={() => {
-                if (window.confirm(`确定要交卷吗？还有 ${questions.length - answeredCount} 道题未作答。`)) {
+                if (
+                  window.confirm(
+                    `确定要交卷吗？还有 ${questions.length - answeredCount} 道题未作答。`,
+                  )
+                ) {
                   handleFinishExam();
                 }
               }}
@@ -255,10 +307,10 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                     onClick={() => setCurrentIndex(i)}
                     className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer relative ${
                       isCurrent
-                        ? 'bg-[#b45309] text-white ring-2 ring-[#b45309]/40'
+                        ? "bg-[#b45309] text-white ring-2 ring-[#b45309]/40"
                         : isAnswered
-                        ? 'bg-[#fef7ea] text-[#854d0e] border border-[#ebdcb9]'
-                        : 'bg-[#f5ede0] text-[#5c4e3f] hover:bg-[#ede1ce]'
+                          ? "bg-[#fef7ea] text-[#854d0e] border border-[#ebdcb9]"
+                          : "bg-[#f5ede0] text-[#5c4e3f] hover:bg-[#ede1ce]"
                     }`}
                   >
                     {i + 1}
@@ -273,16 +325,20 @@ export const ExamMode: React.FC<ExamModeProps> = ({
             <button
               onClick={() => {
                 setMarkedQuestions((prev) =>
-                  prev.includes(currentQ.id) ? prev.filter((id) => id !== currentQ.id) : [...prev, currentQ.id]
+                  prev.includes(currentQ.id)
+                    ? prev.filter((id) => id !== currentQ.id)
+                    : [...prev, currentQ.id],
                 );
               }}
               className={`text-xs px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
                 markedQuestions.includes(currentQ.id)
-                  ? 'bg-[#fef7ea] text-[#b45309] border-[#e8ce8a] font-bold'
-                  : 'bg-[#f8f3e8] text-[#6e6153] border-[#ded3be] hover:bg-[#f3ead7]'
+                  ? "bg-[#fef7ea] text-[#b45309] border-[#e8ce8a] font-bold"
+                  : "bg-[#f8f3e8] text-[#6e6153] border-[#ded3be] hover:bg-[#f3ead7]"
               }`}
             >
-              {markedQuestions.includes(currentQ.id) ? '★ 已标记存疑' : '☆ 标记存疑'}
+              {markedQuestions.includes(currentQ.id)
+                ? "★ 已标记存疑"
+                : "☆ 标记存疑"}
             </button>
           </div>
 
@@ -290,7 +346,15 @@ export const ExamMode: React.FC<ExamModeProps> = ({
           <QuestionCard
             question={currentQ}
             selectedOption={answers[currentQ.id]}
-            onSelectOption={(key) => setAnswers({ ...answers, [currentQ.id]: key })}
+            onSelectOption={(key, timeSpentSec) => {
+              setAnswers((prev) => ({ ...prev, [currentQ.id]: key }));
+              if (timeSpentSec) {
+                setQuestionTimes((prev) => ({
+                  ...prev,
+                  [currentQ.id]: timeSpentSec,
+                }));
+              }
+            }}
             isAnswered={false}
             onOpenAI={(tab) => onOpenAI(tab, currentQ)}
             onToggleFavorite={onToggleFavorite}
@@ -317,7 +381,9 @@ export const ExamMode: React.FC<ExamModeProps> = ({
 
             {currentIndex < questions.length - 1 ? (
               <button
-                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                onClick={() =>
+                  setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
+                }
                 className="px-5 py-2 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <span>下一题</span>
@@ -349,20 +415,29 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                 模考成绩评估报告
               </h2>
               <p className="text-xs text-[#786c5e] mt-1">
-                耗时 {Math.floor(totalTimeSpent / 60)} 分 {totalTimeSpent % 60} 秒 · 共 {questions.length} 题
+                耗时 {Math.floor(totalTimeSpent / 60)} 分 {totalTimeSpent % 60}{" "}
+                秒 · 共 {questions.length} 题
               </p>
             </div>
 
             {/* Score Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 my-6 text-center">
               <div className="p-4 bg-[#fcf8ee] rounded-xl border border-[#ebdcb9]">
-                <span className="text-xs text-[#786c5e] font-medium">总得分</span>
-                <div className="text-3xl font-extrabold text-[#b45309] mt-1 font-display">{score}</div>
-                <span className="text-[10px] text-[#854d0e] font-medium">满分 100 分</span>
+                <span className="text-xs text-[#786c5e] font-medium">
+                  总得分
+                </span>
+                <div className="text-3xl font-extrabold text-[#b45309] mt-1 font-display">
+                  {score}
+                </div>
+                <span className="text-[10px] text-[#854d0e] font-medium">
+                  满分 100 分
+                </span>
               </div>
 
               <div className="p-4 bg-[#edf7ee] rounded-xl border border-[#bbf7d0]">
-                <span className="text-xs text-[#786c5e] font-medium">答对题数</span>
+                <span className="text-xs text-[#786c5e] font-medium">
+                  答对题数
+                </span>
                 <div className="text-3xl font-extrabold text-[#15803d] mt-1 font-display">
                   {correctCount} / {questions.length}
                 </div>
@@ -372,31 +447,46 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               </div>
 
               <div className="p-4 bg-[#fef2f2] rounded-xl border border-[#fecaca]">
-                <span className="text-xs text-[#786c5e] font-medium">错题数</span>
+                <span className="text-xs text-[#786c5e] font-medium">
+                  错题数
+                </span>
                 <div className="text-3xl font-extrabold text-[#b91c1c] mt-1 font-display">
                   {questions.length - correctCount}
                 </div>
-                <span className="text-[10px] text-[#991b1b] font-medium">已自动归档入错题本</span>
+                <span className="text-[10px] text-[#991b1b] font-medium">
+                  已自动归档入错题本
+                </span>
               </div>
 
               <div className="p-4 bg-[#f8f3e8] rounded-xl border border-[#ded3bd]">
-                <span className="text-xs text-[#786c5e] font-medium">平均用时</span>
+                <span className="text-xs text-[#786c5e] font-medium">
+                  平均用时
+                </span>
                 <div className="text-3xl font-extrabold text-[#5c4e3f] mt-1 font-display">
                   {Math.round(totalTimeSpent / (questions.length || 1))}s
                 </div>
-                <span className="text-[10px] text-[#786c5e] font-medium">每题推荐 ≤ 50s</span>
+                <span className="text-[10px] text-[#786c5e] font-medium">
+                  每题推荐 ≤ 50s
+                </span>
               </div>
             </div>
 
             {/* Category Performance Bar */}
             <div className="space-y-3 pt-2">
-              <h4 className="text-xs font-bold text-[#26201a]">各模块得分率透析：</h4>
+              <h4 className="text-xs font-bold text-[#26201a]">
+                各模块得分率透析：
+              </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {categoryStats.map((cs) => (
-                  <div key={cs.category} className="p-3 bg-[#f8f3e8] rounded-xl border border-[#e3d8c2]">
+                  <div
+                    key={cs.category}
+                    className="p-3 bg-[#f8f3e8] rounded-xl border border-[#e3d8c2]"
+                  >
                     <div className="flex justify-between text-xs font-semibold mb-1">
                       <span>{cs.category}</span>
-                      <span className="text-[#b45309]">{cs.correct}/{cs.total} ({cs.accuracy}%)</span>
+                      <span className="text-[#b45309]">
+                        {cs.correct}/{cs.total} ({cs.accuracy}%)
+                      </span>
                     </div>
                     <div className="w-full bg-[#ded3be] h-2 rounded-full overflow-hidden">
                       <div

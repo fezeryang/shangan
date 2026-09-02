@@ -1,22 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Question } from '../types';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LabelList,
-  ResponsiveContainer,
-} from 'recharts';
+import React, { useState, useEffect, useRef } from "react";
+import { Question } from "../types";
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { VariantChart } from "./VariantChart";
 import {
   Sparkles,
   Bot,
@@ -28,143 +13,25 @@ import {
   CheckCircle,
   XCircle,
   Lightbulb,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface AITutorModalProps {
   isOpen: boolean;
   onClose: () => void;
   question: Question | null;
   selectedOption?: string;
-  defaultTab?: 'explain' | 'graphic' | 'variant' | 'chat';
+  /** 用户本题笔记：注入 explain 个性化讲解（激活已建成的 userNote 插槽，审计 E-1） */
+  userNote?: string;
+  defaultTab?: "explain" | "graphic" | "variant" | "chat";
+  /** 保存当前生成的变式题到独立 AI 题库 */
+  onSaveVariant?: (variant: any, source: Question) => void;
 }
 
-const CHART_COLORS = ['#b45309', '#047857', '#4338ca', '#b91c1c', '#92400e'];
-
-/** AI 生成的资料分析变式图表：直接展示数值标签，像真实题目一样可读 */
-const VariantChart: React.FC<{ chart: any }> = ({ chart }) => {
-  if (!chart) return null;
-
-  const titleNode = chart.title ? (
-    <div className="text-center font-bold text-[#26201a] text-sm mb-2">
-      {chart.title}
-      {chart.unit ? <span className="text-xs text-[#786c5e] font-medium ml-1">（单位：{chart.unit}）</span> : null}
-    </div>
-  ) : null;
-
-  if (chart.type === 'table') {
-    return (
-      <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
-        {titleNode}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr>
-                {(chart.columns || []).map((col: string, i: number) => (
-                  <th key={i} className="border border-[#ded3bd] bg-[#f6efe2] px-2.5 py-2 font-bold text-[#4a3e31]">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(chart.rows || []).map((row: any[], ri: number) => (
-                <tr key={ri}>
-                  {row.map((cell: any, ci: number) => (
-                    <td key={ci} className="border border-[#e8ded0] px-2.5 py-1.5 text-center text-[#4a3e31]">
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
-  if (chart.type === 'pie') {
-    const pieData = (chart.categories || []).map((cat: string, i: number) => ({
-      name: cat,
-      value: chart.series?.[0]?.data?.[i] ?? 0,
-    }));
-    return (
-      <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
-        {titleNode}
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={78}
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {pieData.map((_: any, i: number) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    );
-  }
-
-  // bar / line（柱状与折线共用：每个数据点直接显示数值）
-  const isLine = chart.type === 'line';
-  const data = (chart.categories || []).map((cat: string, i: number) => {
-    const row: Record<string, any> = { name: cat };
-    (chart.series || []).forEach((s: any) => {
-      row[s.name] = s.data?.[i] ?? 0;
-    });
-    return row;
-  });
-  const ChartComp = isLine ? LineChart : BarChart;
-
-  return (
-    <div className="my-3 bg-white rounded-xl border border-[#ded3bd] p-3">
-      {titleNode}
-      <div className="h-56 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ChartComp data={data} margin={{ top: 20, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e8ded0" />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#4a3e31' }} />
-            <YAxis tick={{ fontSize: 10, fill: '#8c7e6d' }} />
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: '11px' }} />
-            {(chart.series || []).map((s: any, i: number) =>
-              isLine ? (
-                <Line
-                  key={s.name}
-                  type="monotone"
-                  dataKey={s.name}
-                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                  strokeWidth={2}
-                >
-                  <LabelList dataKey={s.name} position="top" style={{ fontSize: 10, fill: '#4a3e31' }} />
-                </Line>
-              ) : (
-                <Bar
-                  key={s.name}
-                  dataKey={s.name}
-                  fill={CHART_COLORS[i % CHART_COLORS.length]}
-                  radius={[4, 4, 0, 0]}
-                >
-                  <LabelList dataKey={s.name} position="top" style={{ fontSize: 10, fill: '#4a3e31' }} />
-                </Bar>
-              )
-            )}
-          </ChartComp>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
+/** 初始问候仅在前端展示，不上送服务端，不占用服务端轮次窗口（审计 C-2） */
+const CHAT_GREETING = {
+  role: "model" as const,
+  content:
+    "你好！我是你的 AI 测评备考专属导师。无论你在做题中有任何疑问、图推规律看不懂、还是计算步骤卡壳，都可以随时向我提问！",
 };
 
 export const AITutorModal: React.FC<AITutorModalProps> = ({
@@ -172,9 +39,14 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   onClose,
   question,
   selectedOption,
-  defaultTab = 'explain',
+  userNote,
+  defaultTab = "explain",
+  onSaveVariant,
 }) => {
-  const [activeTab, setActiveTab] = useState<'explain' | 'graphic' | 'variant' | 'chat'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<
+    "explain" | "graphic" | "variant" | "chat"
+  >(defaultTab);
+  const isAIQuestion = !!question && "createdAt" in question;
 
   // Explain State
   const [explanation, setExplanation] = useState<string | null>(null);
@@ -190,20 +62,26 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   const [variantError, setVariantError] = useState<string | null>(null);
   const [variantSelected, setVariantSelected] = useState<string | null>(null);
   const [showVariantAnswer, setShowVariantAnswer] = useState(false);
+  const [variantSaved, setVariantSaved] = useState(false);
 
-  // Chat State
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model'; content: string }[]>([
-    {
-      role: 'model',
-      content: '你好！我是你的 AI 测评备考专属导师。无论你在做题中有任何疑问、图推规律看不懂、还是计算步骤卡壳，都可以随时向我提问！',
-    },
-  ]);
-  const [chatInput, setChatInput] = useState('');
+  // Chat State（初始问候仅本地展示，见 CHAT_GREETING 注释）
+  const [chatMessages, setChatMessages] = useState<
+    { role: "user" | "model"; content: string }[]
+  >([CHAT_GREETING]);
+  const [chatInput, setChatInput] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
 
   // Draggable modal（避免面板挡住题目）
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+
+  // 当前题目 id：切换题目后，丢弃仍在途的旧题目请求结果（避免下一题串题）
+  const activeQuestionIdRef = useRef<string | null>(null);
 
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
     dragRef.current = {
@@ -226,124 +104,171 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
   };
 
   useEffect(() => {
-    if (defaultTab) setActiveTab(defaultTab);
-  }, [defaultTab]);
+    if (isOpen)
+      setActiveTab(
+        isAIQuestion && defaultTab === "variant" ? "explain" : defaultTab,
+      );
+  }, [defaultTab, isAIQuestion, isOpen]);
+
+  // 题目切换：清空所有“按题生成”的结果，避免下一题仍显示上一题内容
+  useEffect(() => {
+    activeQuestionIdRef.current = question?.id ?? null;
+    setExplanation(null);
+    setGraphicAnalysis(null);
+    setVariantQuestion(null);
+    setVariantError(null);
+    setVariantSelected(null);
+    setShowVariantAnswer(false);
+    setVariantSaved(false);
+    setChatMessages([CHAT_GREETING]);
+    setChatInput("");
+  }, [question?.id]);
 
   // Reset or fetch when question changes
   useEffect(() => {
     if (question && isOpen) {
-      if (activeTab === 'explain' && !explanation) {
+      if (activeTab === "explain" && !explanation) {
         fetchExplanation();
-      } else if (activeTab === 'graphic' && !graphicAnalysis && question.category === 'graphic') {
+      } else if (
+        activeTab === "graphic" &&
+        !graphicAnalysis &&
+        question.category === "graphic"
+      ) {
         fetchGraphicPattern();
       }
     }
-  }, [question, isOpen, activeTab]);
+  }, [question, isOpen, activeTab, explanation, graphicAnalysis]);
 
   const fetchExplanation = async () => {
     if (!question) return;
+    const questionId = question.id;
     setLoadingExplain(true);
     try {
-      const res = await fetch('/api/ai/explain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ai/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question,
           selectedOption,
+          userNote,
         }),
       });
       const data = await res.json();
+      if (activeQuestionIdRef.current !== questionId) return;
       if (data.explanation) {
         setExplanation(data.explanation);
       } else {
-        setExplanation('未能生成解析，请重试');
+        setExplanation("未能生成解析，请重试");
       }
     } catch (e: any) {
+      if (activeQuestionIdRef.current !== questionId) return;
       setExplanation(`请求失败: ${e.message}`);
     } finally {
-      setLoadingExplain(false);
+      if (activeQuestionIdRef.current === questionId) setLoadingExplain(false);
     }
   };
 
   const fetchGraphicPattern = async () => {
     if (!question) return;
+    const questionId = question.id;
     setLoadingGraphic(true);
     try {
-      const res = await fetch('/api/ai/graphic-pattern', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ai/graphic-pattern", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question,
         }),
       });
       const data = await res.json();
+      if (activeQuestionIdRef.current !== questionId) return;
       if (data.analysis) {
         setGraphicAnalysis(data.analysis);
       } else {
-        setGraphicAnalysis(data.details || data.error || '未能生成图推规律透析');
+        setGraphicAnalysis(
+          data.details || data.error || "未能生成图推规律透析",
+        );
       }
     } catch (e: any) {
+      if (activeQuestionIdRef.current !== questionId) return;
       setGraphicAnalysis(`请求失败: ${e.message}`);
     } finally {
-      setLoadingGraphic(false);
+      if (activeQuestionIdRef.current === questionId) setLoadingGraphic(false);
     }
   };
 
   const generateVariant = async () => {
     if (!question) return;
+    const questionId = question.id;
     setLoadingVariant(true);
     setVariantError(null);
     setVariantSelected(null);
     setShowVariantAnswer(false);
     try {
-      const res = await fetch('/api/ai/generate-variant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ai/generate-variant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ originalQuestion: question }),
       });
       const data = await res.json();
+      if (activeQuestionIdRef.current !== questionId) return;
       if (data.variant) {
         setVariantQuestion(data.variant);
+        setVariantSaved(false);
       } else {
-        setVariantError(data.details || data.error || '生成变式题失败');
+        setVariantError(data.details || data.error || "生成变式题失败");
       }
     } catch (e: any) {
-      setVariantError(e.message || '生成变式题失败');
+      if (activeQuestionIdRef.current !== questionId) return;
+      setVariantError(e.message || "生成变式题失败");
     } finally {
-      setLoadingVariant(false);
+      if (activeQuestionIdRef.current === questionId) setLoadingVariant(false);
     }
+  };
+
+  const handleSaveVariant = () => {
+    if (!question || !variantQuestion || !onSaveVariant) return;
+    onSaveVariant(variantQuestion, question);
+    setVariantSaved(true);
   };
 
   const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || loadingChat) return;
 
-    const userMsg = { role: 'user' as const, content: chatInput.trim() };
+    const userMsg = { role: "user" as const, content: chatInput.trim() };
     const newMessages = [...chatMessages, userMsg];
+    const questionId = question?.id ?? null;
     setChatMessages(newMessages);
-    setChatInput('');
+    setChatInput("");
     setLoadingChat(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newMessages,
+          // 初始问候仅本地展示，不随历史上送（审计 C-2）
+          messages: newMessages.filter((m) => m !== CHAT_GREETING),
           currentQuestionContext: question,
         }),
       });
       const data = await res.json();
+      if (activeQuestionIdRef.current !== questionId) return;
       if (data.reply) {
-        setChatMessages([...newMessages, { role: 'model', content: data.reply }]);
+        setChatMessages([
+          ...newMessages,
+          { role: "model", content: data.reply },
+        ]);
       }
     } catch (e: any) {
+      if (activeQuestionIdRef.current !== questionId) return;
       setChatMessages([
         ...newMessages,
-        { role: 'model', content: `回复失败: ${e.message}` },
+        { role: "model", content: `回复失败: ${e.message}` },
       ]);
     } finally {
-      setLoadingChat(false);
+      if (activeQuestionIdRef.current === questionId) setLoadingChat(false);
     }
   };
 
@@ -356,7 +281,7 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
     >
       <div
         className={`bg-[#fdfbf7] rounded-2xl w-full ${
-          activeTab === 'variant' ? 'max-w-5xl' : 'max-w-3xl'
+          activeTab === "variant" ? "max-w-5xl" : "max-w-3xl"
         } max-h-[92vh] flex flex-col shadow-2xl border border-[#e3d9c4] overflow-hidden animate-in fade-in zoom-in duration-200`}
         onClick={(e) => e.stopPropagation()}
         style={{ transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` }}
@@ -379,8 +304,12 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 <span>AI 智能思维导学助手</span>
               </h3>
               <p className="text-xs text-[#ded3be] line-clamp-1">
-                {question ? `${question.categoryName} · ${question.subCategory} 深度精讲` : '全天候备考智能答疑'}
-                <span className="text-[#8c7e6d] ml-2 hidden sm:inline">⣿ 拖动标题栏可移动面板</span>
+                {question
+                  ? `${question.categoryName} · ${question.subCategory} 深度精讲`
+                  : "全天候备考智能答疑"}
+                <span className="text-[#8c7e6d] ml-2 hidden sm:inline">
+                  ⣿ 拖动标题栏可移动面板
+                </span>
               </p>
             </div>
           </div>
@@ -398,29 +327,29 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
         <div className="flex border-b border-[#e8ded0] bg-[#f8f3e8] px-4 text-xs font-semibold overflow-x-auto no-scrollbar">
           <button
             onClick={() => {
-              setActiveTab('explain');
+              setActiveTab("explain");
               if (!explanation) fetchExplanation();
             }}
             className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === 'explain'
-                ? 'border-[#b45309] text-[#b45309] bg-[#fdfbf7]'
-                : 'border-transparent text-[#6e6153] hover:text-[#26201a]'
+              activeTab === "explain"
+                ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
+                : "border-transparent text-[#6e6153] hover:text-[#26201a]"
             }`}
           >
             <Lightbulb className="w-3.5 h-3.5" />
             <span>AI 思维链拆解 (CoT)</span>
           </button>
 
-          {question?.category === 'graphic' && (
+          {question?.category === "graphic" && (
             <button
               onClick={() => {
-                setActiveTab('graphic');
+                setActiveTab("graphic");
                 if (!graphicAnalysis) fetchGraphicPattern();
               }}
               className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-                activeTab === 'graphic'
-                  ? 'border-[#b45309] text-[#b45309] bg-[#fdfbf7]'
-                  : 'border-transparent text-[#6e6153] hover:text-[#26201a]'
+                activeTab === "graphic"
+                  ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
+                  : "border-transparent text-[#6e6153] hover:text-[#26201a]"
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -428,27 +357,29 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
             </button>
           )}
 
-          <button
-            onClick={() => {
-              setActiveTab('variant');
-              if (!variantQuestion) generateVariant();
-            }}
-            className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === 'variant'
-                ? 'border-[#b45309] text-[#b45309] bg-[#fdfbf7]'
-                : 'border-transparent text-[#6e6153] hover:text-[#26201a]'
-            }`}
-          >
-            <Repeat className="w-3.5 h-3.5" />
-            <span>举一反三变式训练</span>
-          </button>
+          {!isAIQuestion && (
+            <button
+              onClick={() => {
+                setActiveTab("variant");
+                if (!variantQuestion) generateVariant();
+              }}
+              className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
+                activeTab === "variant"
+                  ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
+                  : "border-transparent text-[#6e6153] hover:text-[#26201a]"
+              }`}
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              <span>举一反三变式训练</span>
+            </button>
+          )}
 
           <button
-            onClick={() => setActiveTab('chat')}
+            onClick={() => setActiveTab("chat")}
             className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === 'chat'
-                ? 'border-[#b45309] text-[#b45309] bg-[#fdfbf7]'
-                : 'border-transparent text-[#6e6153] hover:text-[#26201a]'
+              activeTab === "chat"
+                ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
+                : "border-transparent text-[#6e6153] hover:text-[#26201a]"
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -459,18 +390,23 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto flex-1 text-[#26201a] text-xs sm:text-sm leading-relaxed space-y-4">
           {/* TAB 1: AI EXPLAIN */}
-          {activeTab === 'explain' && (
+          {activeTab === "explain" && (
             <div>
               {loadingExplain ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-[#786c5e]">
                   <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
-                  <p className="text-xs font-medium">AI 名师正在梳理考点、逻辑链条与易错选项排雷...</p>
+                  <p className="text-xs font-medium">
+                    AI 名师正在梳理考点、逻辑链条与易错选项排雷...
+                  </p>
                 </div>
               ) : explanation ? (
                 <div className="space-y-3">
                   <div className="p-3 bg-[#fef7ea] rounded-xl border border-[#ebdcb9] flex items-center justify-between">
                     <span className="text-xs text-[#854d0e] font-medium">
-                      当前题解：正确答案为 <strong className="text-[#14532d] text-sm font-bold">{question?.correctAnswer}</strong>
+                      当前题解：正确答案为{" "}
+                      <strong className="text-[#14532d] text-sm font-bold">
+                        {question?.correctAnswer}
+                      </strong>
                       {selectedOption && `（你的选择：${selectedOption}）`}
                     </span>
                     <button
@@ -489,17 +425,27 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           )}
 
           {/* TAB 2: GRAPHIC PATTERN */}
-          {activeTab === 'graphic' && (
+          {activeTab === "graphic" && (
             <div>
               {loadingGraphic ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-[#786c5e]">
                   <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
-                  <p className="text-xs font-medium">正在解析空间几何维度与视觉规律法则...</p>
+                  <p className="text-xs font-medium">
+                    正在解析空间几何维度与视觉规律法则...
+                  </p>
                 </div>
               ) : graphicAnalysis ? (
                 <div className="space-y-3">
-                  <div className="p-3 bg-[#fef7ea] rounded-xl border border-[#ebdcb9] text-[#78350f] text-xs font-medium">
-                    🎨 图形推理考点：{question?.subCategory || '综合几何规律'}
+                  <div className="p-3 bg-[#fef7ea] rounded-xl border border-[#ebdcb9] flex items-center justify-between gap-2">
+                    <span className="text-xs text-[#78350f] font-medium">
+                      🎨 图形推理考点：{question?.subCategory || "综合几何规律"}
+                    </span>
+                    <button
+                      onClick={fetchGraphicPattern}
+                      className="text-xs text-[#b45309] hover:underline flex items-center gap-1 cursor-pointer font-medium shrink-0"
+                    >
+                      <Sparkles className="w-3 h-3" /> 重新分析
+                    </button>
                   </div>
                   <div className="bg-[#f8f3e8] p-4 rounded-xl border border-[#e3d8c2]">
                     <MarkdownRenderer content={graphicAnalysis} />
@@ -510,32 +456,57 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           )}
 
           {/* TAB 3: VARIANT PRACTICE */}
-          {activeTab === 'variant' && (
+          {activeTab === "variant" && !isAIQuestion && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#e8ded0]">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#e8ded0]">
                 <span className="text-xs font-bold text-[#4a3e31]">
                   🎯 智能同构题型强化（考查相同核心逻辑）
                 </span>
-                <button
-                  onClick={generateVariant}
-                  disabled={loadingVariant}
-                  className="px-2.5 py-1 bg-[#fef7ea] hover:bg-[#faeed6] text-[#854d0e] border border-[#ebdcb9] rounded-md text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <Repeat className="w-3 h-3 text-[#b45309]" />
-                  <span>换一道新变式</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {variantQuestion && onSaveVariant && (
+                    <button
+                      onClick={handleSaveVariant}
+                      disabled={variantSaved}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer border ${
+                        variantSaved
+                          ? "bg-[#edf7ee] text-[#15803d] border-[#bbf7d0]"
+                          : "bg-[#fef7ea] hover:bg-[#faeed6] text-[#854d0e] border-[#ebdcb9]"
+                      }`}
+                    >
+                      {variantSaved ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <Repeat className="w-3 h-3 text-[#b45309]" />
+                      )}
+                      <span>
+                        {variantSaved ? "已保存到 AI 题库" : "保存到 AI 题库"}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={generateVariant}
+                    disabled={loadingVariant}
+                    className="px-2.5 py-1 bg-[#fef7ea] hover:bg-[#faeed6] text-[#854d0e] border border-[#ebdcb9] rounded-md text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Repeat className="w-3 h-3 text-[#b45309]" />
+                    <span>换一道新变式</span>
+                  </button>
+                </div>
               </div>
 
               {loadingVariant ? (
                 <div className="py-16 flex flex-col items-center justify-center gap-3 text-[#786c5e]">
                   <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
-                  <p className="text-xs font-medium">AI 正在根据母题难度生成全新变式题目与干扰项...</p>
+                  <p className="text-xs font-medium">
+                    AI 正在根据母题难度生成全新变式题目与干扰项...
+                  </p>
                 </div>
               ) : variantError ? (
                 <div className="p-4 bg-[#fef2f0] rounded-xl border border-[#fecaca] text-xs text-[#991b1b] leading-relaxed">
                   <div className="font-bold mb-1">❌ {variantError}</div>
                   <p className="text-[11px] text-[#b91c1c]">
-                    可能是 API 密钥无效、网络不通或模型未返回合法内容，请点击右上角「换一道新变式」重试。
+                    可能是 API
+                    密钥无效、网络不通或模型未返回合法内容，请点击右上角「换一道新变式」重试。
                   </p>
                 </div>
               ) : variantQuestion ? (
@@ -543,46 +514,62 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                   <div className="text-xs text-[#854d0e] font-semibold">
                     【变式强化题】· {variantQuestion.subCategory}
                   </div>
-                  <p className="font-medium text-[#26201a] text-sm">{variantQuestion.stem}</p>
+                  <p className="font-medium text-[#26201a] text-sm">
+                    {variantQuestion.stem}
+                  </p>
 
                   {/* 图推变式：AI 生成的 SVG 图形序列（与真题同规格的复杂图形） */}
                   {variantQuestion.stemFigures?.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {variantQuestion.stemFigures.map((fig: any, i: number) => (
-                        <div key={i} className="bg-white rounded-lg border border-[#ded3bd] p-2 flex flex-col items-center gap-1">
+                      {variantQuestion.stemFigures.map(
+                        (fig: any, i: number) => (
                           <div
-                            className="w-full flex items-center justify-center"
-                            dangerouslySetInnerHTML={{ __html: fig.svg }}
-                          />
-                          <span className="text-[10px] text-[#8c7e6d]">{fig.label || `图${i + 1}`}</span>
-                        </div>
-                      ))}
+                            key={i}
+                            className="bg-white rounded-lg border border-[#ded3bd] p-2 flex flex-col items-center gap-1"
+                          >
+                            <div
+                              className="w-full flex items-center justify-center"
+                              dangerouslySetInnerHTML={{ __html: fig.svg }}
+                            />
+                            <span className="text-[10px] text-[#8c7e6d]">
+                              {fig.label || `图${i + 1}`}
+                            </span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   )}
 
                   {/* 资料分析变式：AI 生成的统计图/数据表，数据直接可读 */}
-                  {variantQuestion.chart && <VariantChart chart={variantQuestion.chart} />}
+                  {variantQuestion.chart && (
+                    <VariantChart chart={variantQuestion.chart} />
+                  )}
 
                   <div
                     className={
                       variantQuestion.options?.some((o: any) => o.svg)
-                        ? 'grid grid-cols-2 lg:grid-cols-4 gap-2'
-                        : 'space-y-2'
+                        ? "grid grid-cols-2 lg:grid-cols-4 gap-2"
+                        : "space-y-2"
                     }
                   >
                     {variantQuestion.options?.map((opt: any) => {
                       const isSelected = variantSelected === opt.key;
-                      const isCorrect = variantQuestion.correctAnswer === opt.key;
+                      const isCorrect =
+                        variantQuestion.correctAnswer === opt.key;
 
-                      let btnStyle = 'bg-[#fffdfa] border-[#ded3bd] hover:border-[#b45309] text-[#26201a]';
+                      let btnStyle =
+                        "bg-[#fffdfa] border-[#ded3bd] hover:border-[#b45309] text-[#26201a]";
                       if (showVariantAnswer) {
                         if (isCorrect) {
-                          btnStyle = 'bg-[#edf7ee] border-[#4e9658] text-[#14532d] font-semibold';
+                          btnStyle =
+                            "bg-[#edf7ee] border-[#4e9658] text-[#14532d] font-semibold";
                         } else if (isSelected && !isCorrect) {
-                          btnStyle = 'bg-[#fef2f0] border-[#c2410c] text-[#991b1b]';
+                          btnStyle =
+                            "bg-[#fef2f0] border-[#c2410c] text-[#991b1b]";
                         }
                       } else if (isSelected) {
-                        btnStyle = 'bg-[#fef7eb] border-[#b45309] text-[#26201a] font-semibold ring-1 ring-[#b45309]';
+                        btnStyle =
+                          "bg-[#fef7eb] border-[#b45309] text-[#26201a] font-semibold ring-1 ring-[#b45309]";
                       }
 
                       return (
@@ -596,7 +583,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                             }
                           }}
                           className={`w-full text-left p-3 rounded-lg border flex ${
-                            opt.svg ? 'flex-col items-stretch gap-2' : 'items-start gap-2.5'
+                            opt.svg
+                              ? "flex-col items-stretch gap-2"
+                              : "items-start gap-2.5"
                           } text-xs transition-all cursor-pointer ${btnStyle}`}
                         >
                           <span className="w-5 h-5 rounded-full bg-[#f3ead7] flex items-center justify-center font-bold text-[#4a3e31] shrink-0">
@@ -608,7 +597,11 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                                 className="w-full min-h-20 max-h-32 flex items-center justify-center bg-white rounded-md border border-[#e8ded0] p-1"
                                 dangerouslySetInnerHTML={{ __html: opt.svg }}
                               />
-                              {opt.content && <span className="text-[11px] text-[#786c5e] leading-snug">{opt.content}</span>}
+                              {opt.content && (
+                                <span className="text-[11px] text-[#786c5e] leading-snug">
+                                  {opt.content}
+                                </span>
+                              )}
                             </span>
                           ) : (
                             <span className="flex-1">{opt.content}</span>
@@ -630,7 +623,9 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                         <CheckCircle className="w-4 h-4 text-[#15803d]" />
                         <span>正确答案：{variantQuestion.correctAnswer}</span>
                       </div>
-                      <MarkdownRenderer content={variantQuestion.explanation || ''} />
+                      <MarkdownRenderer
+                        content={variantQuestion.explanation || ""}
+                      />
                     </div>
                   )}
                 </div>
@@ -639,27 +634,27 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
           )}
 
           {/* TAB 4: CHAT */}
-          {activeTab === 'chat' && (
+          {activeTab === "chat" && (
             <div className="flex flex-col h-96">
               <div className="flex-1 overflow-y-auto space-y-3 pr-2">
                 {chatMessages.map((msg, i) => (
                   <div
                     key={i}
-                    className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    {msg.role === 'model' && (
+                    {msg.role === "model" && (
                       <div className="w-7 h-7 rounded-full bg-[#b45309] text-white flex items-center justify-center shrink-0 shadow-xs">
                         <Bot className="w-4 h-4" />
                       </div>
                     )}
                     <div
                       className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed ${
-                        msg.role === 'user'
-                          ? 'bg-[#b45309] text-white rounded-br-xs font-normal'
-                          : 'bg-[#f8f3e8] text-[#26201a] border border-[#e3d8c2] rounded-bl-xs'
+                        msg.role === "user"
+                          ? "bg-[#b45309] text-white rounded-br-xs font-normal"
+                          : "bg-[#f8f3e8] text-[#26201a] border border-[#e3d8c2] rounded-bl-xs"
                       }`}
                     >
-                      {msg.role === 'model' ? (
+                      {msg.role === "model" ? (
                         <MarkdownRenderer content={msg.content} />
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -676,7 +671,10 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
               </div>
 
               {/* Chat Input Bar */}
-              <form onSubmit={handleSendChat} className="mt-3 pt-3 border-t border-[#e8ded0] flex gap-2">
+              <form
+                onSubmit={handleSendChat}
+                className="mt-3 pt-3 border-t border-[#e8ded0] flex gap-2"
+              >
                 <input
                   type="text"
                   value={chatInput}
