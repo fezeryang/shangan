@@ -713,11 +713,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 >
                   <span className="flex items-center justify-center gap-1.5">
                     <Stethoscope className="w-3.5 h-3.5" />
-                    <span>生成我的 AI 学情诊断</span>
+                    <span>生成全面 AI 学情诊断分析</span>
                   </span>
                 </DrawablyButton>
                 <p className="text-[11px] text-[#8c7e6d] text-center">
-                  基于你的真实作答与错题记录生成（与错题本同一入口）
+                  基于学情看板全部维度生成：能力雷达 · 分考点掌握 · 用时效率 ·
+                  趋势与学习节律
                 </p>
               </div>
             </div>
@@ -725,13 +726,28 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         )}
       </motion.div>
 
-      {/* 真 AI 学情诊断弹窗（server diagnose 链路，与错题本共用） */}
+      {/* 看板入口：全面 AI 学情诊断弹窗（server diagnose 链路 analytics 模式，错题本入口为 mistakes 模式） */}
       <AIDiagnoseModal
         isOpen={isDiagnoseOpen}
         onClose={() => setIsDiagnoseOpen(false)}
+        mode="analytics"
         mistakeIds={stats.mistakeIds}
         answerRecords={answerRecords}
         stats={stats}
+        answerAttempts={answerAttempts}
+        analyticsData={{
+          radar: d.radar,
+          categoryStats: d.categoryStats,
+          subStats: d.subStats,
+          timeEfficiency: {
+            fastCount: d.fastCount,
+            normalCount: d.normalCount,
+            slowCount: d.slowCount,
+          },
+          trend,
+          streakDays: stats.streakDays,
+          coveragePct: Math.round((d.total / allQuestions.length) * 100),
+        }}
       />
     </motion.div>
   );

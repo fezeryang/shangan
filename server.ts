@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import {
   PROMPT_TASKS,
   buildChatContextMessage,
+  buildComprehensiveDiagnosePrompt,
   buildDiagnosePrompt,
   buildExplainPrompt,
   buildGraphicPatternPrompt,
@@ -715,12 +716,15 @@ async function startServer() {
     }
   });
 
-  // AI Mistake Diagnostic & Study Prescription (错题学情深度诊断与提分处方)
+  // AI 学情诊断：mistakes 模式（错题归因，错题本入口）/ analytics 模式（学情看板全维度全面诊断）
   app.post("/api/ai/diagnose", async (req, res) => {
     try {
-      const { mistakeSummary, stats } = req.body;
+      const { mistakeSummary, stats, analytics, mode } = req.body;
 
-      const prompt = buildDiagnosePrompt(mistakeSummary, stats);
+      const prompt =
+        mode === "analytics"
+          ? buildComprehensiveDiagnosePrompt(mistakeSummary, stats, analytics)
+          : buildDiagnosePrompt(mistakeSummary, stats);
       const diagnosis = await generateText({
         prompt,
         system: PROMPT_TASKS.diagnose.system,

@@ -5,6 +5,7 @@ import {
   subCategoryStats,
   latestRecords,
   recentTrend,
+  studyRhythm,
 } from "../src/data/analytics";
 import {
   RAW_KNOWLEDGE_POINTS,
@@ -77,6 +78,43 @@ const t = recentTrend(attempts, 7, now);
 assert(t.recent !== null && t.before !== null, "两窗口应有数据");
 assert(t.recent.count === 2 && t.before.count === 1, "趋势窗口切分按时间戳");
 assert(recentTrend([], 7, now).recent === null, "空数据无趋势");
+
+// 3.1 学习节律：按小时/星期聚合 + 无效时间戳剔除（本地时间，与热力图同口径）
+const rhythm = studyRhythm([
+  {
+    questionId: "rhythm-1",
+    userAnswer: "A",
+    isCorrect: true,
+    timeSpentSec: 10,
+    answeredAt: "2026-09-01T09:30:00",
+  },
+  {
+    questionId: "rhythm-2",
+    userAnswer: "B",
+    isCorrect: false,
+    timeSpentSec: 20,
+    answeredAt: "2026-09-01T09:40:00",
+  },
+  {
+    questionId: "rhythm-3",
+    userAnswer: "C",
+    isCorrect: true,
+    timeSpentSec: 15,
+    answeredAt: "bad-timestamp",
+  },
+]);
+assert(
+  rhythm.hours.length === 1 && rhythm.hours[0].hour === 9,
+  "节律应按小时聚合",
+);
+assert(
+  rhythm.hours[0].total === 2 && rhythm.hours[0].acc === 50,
+  "节律正确率按对错聚合",
+);
+assert(
+  rhythm.weekdays.length === 1 && rhythm.weekdays[0].total === 2,
+  "节律按星期聚合且无效时间戳不计入",
+);
 
 // 4. 图谱跳转：每个有题考点都落到非空专项练习列表，首选目标题量最大
 let deadNodes = 0;

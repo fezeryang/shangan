@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildChatContextMessage,
+  buildComprehensiveDiagnosePrompt,
   buildDiagnosePrompt,
   buildExplainPrompt,
   buildGraphicPatternPrompt,
@@ -97,6 +98,50 @@ const svgGraphic = {
   })),
 };
 
+/** 全面诊断（analytics 模式）固定输入：断言与 golden 快照共用 */
+const diagnoseAnalyticsInput = {
+  radar: {
+    verbal: 80,
+    data: 60,
+    graphic: null,
+    advancedGraphic: 45,
+    hard: 70,
+  },
+  categoryStats: [
+    {
+      key: "verbal",
+      name: "言语理解",
+      totalAnswered: 10,
+      correctCount: 8,
+      accuracy: 80,
+      avgTimeSec: 40,
+      bankTotal: 300,
+    },
+  ],
+  subStats: {
+    verbal: [
+      {
+        sub: "主旨概括",
+        bankTotal: 40,
+        total: 5,
+        correct: 4,
+        acc: 80,
+        avgSec: 42,
+      },
+    ],
+    data: [],
+    graphic: [],
+  },
+  timeEfficiency: { fastCount: 3, normalCount: 4, slowCount: 1 },
+  trend: { recent: { count: 5, acc: 80 }, before: { count: 10, acc: 60 } },
+  rhythm: {
+    hours: [{ hour: 9, total: 4, acc: 75 }],
+    weekdays: [{ day: 2, total: 6 }],
+  },
+  streakDays: 3,
+  coveragePct: 12,
+};
+
 // ---------- 通用：人设统一与防泄露护栏 ----------
 const allSystems = [
   EXPLAIN_SYSTEM,
@@ -140,10 +185,7 @@ const builtPrompts = [
   buildChatContextMessage(base) || "",
 ];
 for (const p of builtPrompts) {
-  assert(
-    !p.includes("公考"),
-    "提示词不应出现「公考」域词（产品域为上岸测评）",
-  );
+  assert(!p.includes("公考"), "提示词不应出现「公考」域词（产品域为上岸测评）");
   assert(!p.includes("考研"), "提示词不应出现「考研」域词");
 }
 for (const sys of allSystems) {
@@ -491,6 +533,46 @@ for (const category of ["verbal", "data", "graphic"] as const) {
   assert(!many.includes("仅取前"), "不应再以「前 X 条」截断（D-2）");
 }
 
+// ---------- diagnose（analytics 全面模式）：看板全维度注入 + 未练习不评价 ----------
+{
+  const full = buildComprehensiveDiagnosePrompt(
+    [
+      {
+        category: "言语理解与推理",
+        subCategory: "主旨概括",
+        userAnswer: "B",
+        correctAnswer: "A",
+      },
+    ],
+    { totalAnswered: 30, accuracy: 60 },
+    diagnoseAnalyticsInput,
+  );
+  assert(full.includes("能力雷达"), "全面诊断应包含能力雷达数据段");
+  assert(
+    full.includes("图形推理：未练习"),
+    "未练习雷达维度应标注未练习，不得当作 0 分",
+  );
+  assert(
+    full.includes("分考点正确率明细") && full.includes("主旨概括"),
+    "全面诊断应注入已练习分考点明细",
+  );
+  assert(
+    full.includes("考试权重") && full.includes("基准正确率"),
+    "全面诊断应注入已练习考点知识档案",
+  );
+  assert(full.includes("学习节律"), "全面诊断应包含学习节律数据段");
+  assert(full.includes("09:00：4 题"), "节律小时行应包含时段与题量");
+  assert(full.includes("近 7 天"), "全面诊断应包含趋势数据段");
+  assert(
+    full.includes("不得虚构") && full.includes("不硬凑"),
+    "全面诊断应保留不编造与不硬凑护栏",
+  );
+
+  const noData = buildComprehensiveDiagnosePrompt([], {}, undefined);
+  assert(noData.includes("暂无错题记录"), "全面诊断无错题时应明确说明");
+  assert(noData.includes("作息数据不足"), "全面诊断无节律数据时应降级说明");
+}
+
 // ---------- chat：题目上下文进首条 user 消息而非 system（C-1） ----------
 {
   assert(PROMPT_TASKS.chat.system.length > 0, "chat system 基座不应为空");
@@ -669,6 +751,21 @@ assert(
           },
         ],
         { totalAnswered: 30, accuracy: 60 },
+      ),
+    ],
+    [
+      "diagnose-analytics",
+      buildComprehensiveDiagnosePrompt(
+        [
+          {
+            category: "言语理解与推理",
+            subCategory: "主旨概括",
+            userAnswer: "B",
+            correctAnswer: "A",
+          },
+        ],
+        { totalAnswered: 30, accuracy: 60 },
+        diagnoseAnalyticsInput,
       ),
     ],
     [

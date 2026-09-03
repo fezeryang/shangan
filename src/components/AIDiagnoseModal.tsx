@@ -1,13 +1,44 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import type { StudyStats, UserAnswerRecord } from "../types";
+import type { AnswerAttempt, StudyStats, UserAnswerRecord } from "../types";
+import type { SubCategoryStat } from "../data/analytics";
+import { studyRhythm } from "../data/analytics";
 import { allQuestions } from "../data/allQuestions";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { Sparkles, Stethoscope, X, Loader2 } from "lucide-react";
 
+/** 学情看板入口（analytics 模式）所需的看板全维度数据，与 AnalyticsView 同口径 */
+export interface AnalyticsDiagnoseInput {
+  radar: {
+    verbal: number | null;
+    data: number | null;
+    graphic: number | null;
+    advancedGraphic: number | null;
+    hard: number | null;
+  };
+  categoryStats: {
+    key: string;
+    name: string;
+    totalAnswered: number;
+    correctCount: number;
+    accuracy: number;
+    avgTimeSec: number;
+    bankTotal: number;
+  }[];
+  subStats: Record<"verbal" | "data" | "graphic", SubCategoryStat[]>;
+  timeEfficiency: { fastCount: number; normalCount: number; slowCount: number };
+  trend: {
+    recent: { count: number; acc: number } | null;
+    before: { count: number; acc: number } | null;
+  };
+  streakDays: number;
+  coveragePct: number;
+}
+
 /**
  * 真实 AI 学情诊断弹窗（server /api/ai/diagnose）。
- * 由 MistakeBook 与学情看板共用：基于错题与真实作答统计生成报告。
+ * - mistakes 模式（错题本入口）：错题归因 + 提分处方
+ * - analytics 模式（学情看板入口）：注入看板全维度数据的全面诊断分析
  */
 interface AIDiagnoseModalProps {
   isOpen: boolean;
@@ -15,6 +46,11 @@ interface AIDiagnoseModalProps {
   mistakeIds: string[];
   answerRecords: UserAnswerRecord[];
   stats: StudyStats;
+  mode?: "mistakes" | "analytics";
+  /** analytics 模式：全量作答轨迹（驱动学习节律） */
+  answerAttempts?: AnswerAttempt[];
+  /** analytics 模式：看板全维度数据（与 AnalyticsView 同口径） */
+  analyticsData?: AnalyticsDiagnoseInput;
 }
 
 export const AIDiagnoseModal: React.FC<AIDiagnoseModalProps> = ({
@@ -23,7 +59,11 @@ export const AIDiagnoseModal: React.FC<AIDiagnoseModalProps> = ({
   mistakeIds,
   answerRecords,
   stats,
+  mode = "mistakes",
+  answerAttempts,
+  analyticsData,
 }) => {
+  const isAnalytics = mode === "analytics";
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [loadingDiagnosis, setLoadingDiagnosis] = useState(false);
   const [diagnoseError, setDiagnoseError] = useState<string | null>(null);
@@ -83,28 +123,45 @@ export const AIDiagnoseModal: React.FC<AIDiagnoseModalProps> = ({
         (r) => (r.timeSpentSec || 0) > 60,
       ).length;
 
+      const statsPayload = {
+        totalAnswered: stats.totalAnswered,
+        accuracy:
+          stats.totalAnswered > 0
+            ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
+            : 0,
+        verbalAccuracy: catAccuracy("verbal"),
+        dataAccuracy: catAccuracy("data"),
+        graphicAccuracy: catAccuracy("graphic"),
+        averageTimeSec: avgTimeSec,
+        verbalAvgTimeSec: catTime("verbal"),
+        dataAvgTimeSec: catTime("data"),
+        graphicAvgTimeSec: catTime("graphic"),
+        fastAnsweredCount,
+        slowAnsweredCount,
+      };
+
       const res = await fetch("/api/ai/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mistakeSummary,
-          stats: {
-            totalAnswered: stats.totalAnswered,
-            accuracy:
-              stats.totalAnswered > 0
-                ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
-                : 0,
-            verbalAccuracy: catAccuracy("verbal"),
-            dataAccuracy: catAccuracy("data"),
-            graphicAccuracy: catAccuracy("graphic"),
-            averageTimeSec: avgTimeSec,
-            verbalAvgTimeSec: catTime("verbal"),
-            dataAvgTimeSec: catTime("data"),
-            graphicAvgTimeSec: catTime("graphic"),
-            fastAnsweredCount,
-            slowAnsweredCount,
-          },
-        }),
+        body: JSON.stringify(
+          isAnalytics && analyticsData && answerAttempts
+            ? {
+                mistakeSummary,
+                stats: statsPayload,
+                mode: "analytics",
+                analytics: {
+                  radar: analyticsData.radar,
+                  categoryStats: analyticsData.categoryStats,
+                  subStats: analyticsData.subStats,
+                  timeEfficiency: analyticsData.timeEfficiency,
+                  trend: analyticsData.trend,
+                  rhythm: studyRhythm(answerAttempts),
+                  streakDays: analyticsData.streakDays,
+                  coveragePct: analyticsData.coveragePct,
+                },
+              }
+            : { mistakeSummary, stats: statsPayload },
+        ),
       });
       const data = await res.json();
       if (data.diagnosis) {
@@ -144,11 +201,14 @@ export const AIDiagnoseModal: React.FC<AIDiagnoseModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold font-display text-white">
-                AI 学情深度诊断与提分处方
+                {isAnalytics
+                  ? "AI 全面学情诊断分析"
+                  : "AI 学情深度诊断与提分处方"}
               </h3>
               <p className="text-xs text-[#ded3be]">
-                基于你的 {answerRecords.length} 题作答记录与 {mistakeIds.length}{" "}
-                道错题
+                {isAnalytics
+                  ? `能力雷达 · 分考点掌握 · 用时效率 · 趋势与学习节律 · ${mistakeIds.length} 道错题归因`
+                  : `基于你的 ${answerRecords.length} 题作答记录与 ${mistakeIds.length} 道错题`}
               </p>
             </div>
           </div>
@@ -166,7 +226,9 @@ export const AIDiagnoseModal: React.FC<AIDiagnoseModalProps> = ({
             <div className="py-16 flex flex-col items-center justify-center gap-3 text-[#786c5e]">
               <Loader2 className="w-8 h-8 animate-spin text-[#b45309]" />
               <p className="text-xs font-medium">
-                AI 正在多维剖析你的错题规律与思维误区...
+                {isAnalytics
+                  ? "AI 正在综合剖析你的能力雷达、考点掌握、用时效率与学习节律..."
+                  : "AI 正在多维剖析你的错题规律与思维误区..."}
               </p>
             </div>
           ) : diagnoseError ? (

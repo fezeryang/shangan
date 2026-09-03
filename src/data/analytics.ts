@@ -94,3 +94,49 @@ export function recentTrend(
     before: win(attempts.filter((a) => t(a) < cutoff)),
   };
 }
+
+export interface RhythmHourStat {
+  hour: number;
+  total: number;
+  acc: number;
+}
+
+export interface RhythmWeekdayStat {
+  day: number; // 0=周日 … 6=周六
+  total: number;
+}
+
+/** 学习节律（全量 attempts）：24 小时作答分布 + 星期分布；无效时间戳跳过 */
+export function studyRhythm(attempts: AnswerAttempt[]): {
+  hours: RhythmHourStat[];
+  weekdays: RhythmWeekdayStat[];
+} {
+  const hourMap = new Map<number, { total: number; correct: number }>();
+  const dayMap = new Map<number, number>();
+  for (const a of attempts) {
+    try {
+      const dt = new Date(a.answeredAt);
+      if (Number.isNaN(dt.getTime())) continue;
+      const h = dt.getHours();
+      const bucket = hourMap.get(h) || { total: 0, correct: 0 };
+      bucket.total += 1;
+      if (a.isCorrect) bucket.correct += 1;
+      hourMap.set(h, bucket);
+      dayMap.set(dt.getDay(), (dayMap.get(dt.getDay()) || 0) + 1);
+    } catch {
+      // 无效时间戳跳过
+    }
+  }
+  return {
+    hours: Array.from(hourMap.entries())
+      .sort(([x], [y]) => x - y)
+      .map(([hour, b]) => ({
+        hour,
+        total: b.total,
+        acc: Math.round((b.correct / b.total) * 100),
+      })),
+    weekdays: Array.from(dayMap.entries())
+      .sort(([x], [y]) => x - y)
+      .map(([day, total]) => ({ day, total })),
+  };
+}

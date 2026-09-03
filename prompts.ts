@@ -14,7 +14,7 @@
 // - explain        题目深度解析与保姆级讲解
 // - graphicPattern 图形推理规律拆解（模型看不到图片，按「方法论 + 官方解析还原」设计）
 // - variant        同考点变式题（举一反三）
-// - diagnose       错题学情诊断
+// - diagnose       学情诊断（错题归因 / 学情看板全维度全面诊断）
 // - chat           实时答疑
 
 import {
@@ -59,7 +59,7 @@ export interface MistakeSummaryItem {
 // ---------- 版本管理（审计 4.5） ----------
 
 /** 提示词版本：有意修改任何 prompt 文本时递增，并运行 UPDATE_PROMPT_SNAPSHOT=1 npm test 更新 golden 快照 */
-export const PROMPTS_VERSION = "1.8.0";
+export const PROMPTS_VERSION = "1.9.0";
 
 // ---------- 通用护栏（所有 system 共享，防止数据段覆盖规则） ----------
 
@@ -139,11 +139,13 @@ function formulaCheatSheet(category?: QuestionCategory | string): string {
     .join("\n");
 }
 
-/** diagnose 用：错题涉及考点的知识档案（去重），作为优先级排序依据 */
-function diagnoseKnowledgeArchive(mistakes: MistakeSummaryItem[]): string {
+/** diagnose 用：错题/已练习考点涉及的知识档案（去重），作为优先级排序依据 */
+function knowledgeArchiveForSubs(
+  items: Array<{ category?: string; subCategory?: string }>,
+): string {
   const seen = new Set<string>();
   const lines: string[] = [];
-  for (const m of mistakes) {
+  for (const m of items) {
     const cat =
       m.category === "verbal" ||
       m.category === "data" ||
@@ -689,6 +691,24 @@ ${optionLines}
 - 若新题仍可被描述为“只是把母题换了话题，考点和陷阱完全一样”，视为不合格，推翻重写后再输出。`;
 }
 
+/** diagnose 两个入口共用：整体/分板块正确率与用时概览 */
+function diagnoseStatsOverview(
+  stats: Record<string, unknown> | undefined,
+): string {
+  return `【考生真实数据概览】
+- 总做题数：${stats?.totalAnswered || 0}
+- 整体正确率：${stats?.accuracy || 0}%
+- 言语理解正确率：${stats?.verbalAccuracy || 0}%
+- 资料分析正确率：${stats?.dataAccuracy || 0}%
+- 图形推理正确率：${stats?.graphicAccuracy || 0}%
+- 平均单题用时：${stats?.averageTimeSec || 0} 秒
+- 言语理解平均用时：${stats?.verbalAvgTimeSec || 0} 秒
+- 资料分析平均用时：${stats?.dataAvgTimeSec || 0} 秒
+- 图形推理平均用时：${stats?.graphicAvgTimeSec || 0} 秒
+- 快速作答(≤30s)题数：${stats?.fastAnsweredCount || 0}
+- 偏慢作答(>60s)题数：${stats?.slowAnsweredCount || 0}`;
+}
+
 export function buildDiagnosePrompt(
   mistakeSummary: MistakeSummaryItem[] | undefined,
   stats: Record<string, unknown> | undefined,
@@ -702,18 +722,7 @@ export function buildDiagnosePrompt(
       ? `（共 ${all.length} 条，仅取最近 ${rows.length} 条）`
       : "";
 
-  const overview = `【考生真实数据概览】
-- 总做题数：${stats?.totalAnswered || 0}
-- 整体正确率：${stats?.accuracy || 0}%
-- 言语理解正确率：${stats?.verbalAccuracy || 0}%
-- 资料分析正确率：${stats?.dataAccuracy || 0}%
-- 图形推理正确率：${stats?.graphicAccuracy || 0}%
-- 平均单题用时：${stats?.averageTimeSec || 0} 秒
-- 言语理解平均用时：${stats?.verbalAvgTimeSec || 0} 秒
-- 资料分析平均用时：${stats?.dataAvgTimeSec || 0} 秒
-- 图形推理平均用时：${stats?.graphicAvgTimeSec || 0} 秒
-- 快速作答(≤30s)题数：${stats?.fastAnsweredCount || 0}
-- 偏慢作答(>60s)题数：${stats?.slowAnsweredCount || 0}`;
+  const overview = diagnoseStatsOverview(stats);
 
   if (rows.length === 0) {
     return `请根据以下考生练习数据输出一份简短学情反馈（2~3 段即可，不要套用完整五段报告模板）。
@@ -728,7 +737,7 @@ ${overview}
 - 不编造任何数据或具体错题情节。`;
   }
 
-  const archive = diagnoseKnowledgeArchive(rows);
+  const archive = knowledgeArchiveForSubs(rows);
 
   return `请根据该考生的真实练习数据和错题记录，进行多维度学情诊断，并生成专属提分策略报告。
 
@@ -752,6 +761,180 @@ ${archive ? `\n【错题涉及考点知识库档案（优先级判断依据；�
 3. 💊 **个性化专项提分处方（7天突破规划）**：按“今天/第2-3天/第4-5天/第6-7天”拆解，每天给具体可执行的刷题与复盘动作。
 4. 🚦 **下次做题时的“三秒检查清单”**：给出 3~5 条可立即执行的避错提醒。
 5. 🌟 **专属鼓励与心态建议**：真诚、具体，两三句即可。`;
+}
+
+/**
+ * 学情看板入口的全面 AI 诊断（analytics 模式）：注入看板全维度数据——
+ * 能力雷达、三板块、分考点明细、用时效率、近 7 天趋势、学习节律、打卡/覆盖率，
+ * 外加错题记录做归因。与错题本入口（buildDiagnosePrompt）共用知识档案与口径护栏。
+ */
+export function buildComprehensiveDiagnosePrompt(
+  mistakeSummary: MistakeSummaryItem[] | undefined,
+  stats: Record<string, unknown> | undefined,
+  analytics: Record<string, unknown> | undefined,
+): string {
+  const a = analytics ?? {};
+  const all = Array.isArray(mistakeSummary) ? mistakeSummary : [];
+  // 与错题入口同口径：取最近 60 条，诊断代表近期学情（审计 D-2）
+  const rows = all.slice(0, 60);
+  const truncatedNote =
+    all.length > rows.length
+      ? `（共 ${all.length} 条，仅取最近 ${rows.length} 条）`
+      : "";
+
+  const num = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const pct = (v: unknown): string => {
+    const n = num(v);
+    return n === null ? "未练习" : `${n}%`;
+  };
+  const rec = (v: unknown): Record<string, unknown> | null =>
+    typeof v === "object" && v !== null ? (v as Record<string, unknown>) : null;
+  const catName = (key: string) =>
+    key === "verbal"
+      ? "言语理解"
+      : key === "data"
+        ? "资料分析"
+        : key === "graphic"
+          ? "图形推理"
+          : key;
+
+  // 能力雷达：null = 未练习（不绘制），不得当作 0 分评价
+  const radar = rec(a.radar);
+  const radarLines = [
+    ["verbal", "言语理解"],
+    ["data", "资料分析"],
+    ["graphic", "图形推理"],
+    ["advancedGraphic", "图形规律进阶"],
+    ["hard", "难题正确率"],
+  ]
+    .map(([key, label]) => `- ${label}：${pct(radar?.[key])}`)
+    .join("\n");
+
+  const catStats = Array.isArray(a.categoryStats) ? a.categoryStats : [];
+  const catLines = catStats
+    .map(rec)
+    .filter((r): r is Record<string, unknown> => r !== null)
+    .map(
+      (r) =>
+        `- ${catName(String(r.key ?? ""))}：正确率 ${pct(r.accuracy)} · 已练 ${num(r.totalAnswered) ?? 0}/${num(r.bankTotal) ?? 0} 题 · 平均用时 ${num(r.avgTimeSec) ?? 0}s`,
+    )
+    .join("\n");
+
+  // 分考点明细（仅已练习考点），同时收集考点供知识档案注入
+  const subStatsObj = rec(a.subStats);
+  const practicedSubs: Array<{ category?: string; subCategory?: string }> = [];
+  const subLines: string[] = [];
+  for (const [catKey, list] of Object.entries(subStatsObj ?? {})) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const r = rec(item);
+      if (!r) continue;
+      const total = num(r.total);
+      if (!total) continue; // 未练习考点不注入，避免 0 分噪声
+      subLines.push(
+        `- ${catName(catKey)} · ${String(r.sub ?? "")}：${num(r.acc) ?? 0}% · ${num(r.correct) ?? 0}/${total} 题 · 均 ${num(r.avgSec) ?? 0}s · 题库 ${num(r.bankTotal) ?? 0} 题`,
+      );
+      practicedSubs.push({
+        category: catKey,
+        subCategory: String(r.sub ?? ""),
+      });
+    }
+  }
+  const subBlock = subLines.length
+    ? subLines.join("\n")
+    : "（暂无已练习考点明细）";
+  const archive = knowledgeArchiveForSubs(practicedSubs);
+
+  const timeEff = rec(a.timeEfficiency);
+  const timeLines = [
+    `- 快而稳（≤30s）：${num(timeEff?.fastCount) ?? 0} 题`,
+    `- 达标区间（30-60s）：${num(timeEff?.normalCount) ?? 0} 题`,
+    `- 偏慢待提速（>60s）：${num(timeEff?.slowCount) ?? 0} 题`,
+  ].join("\n");
+
+  const trend = rec(a.trend);
+  const recent = rec(trend?.recent);
+  const before = rec(trend?.before);
+  const trendBlock =
+    recent && before
+      ? `- 近 7 天：${num(recent.count) ?? 0} 题 · 正确率 ${num(recent.acc) ?? 0}%
+- 此前：${num(before.count) ?? 0} 题 · 正确率 ${num(before.acc) ?? 0}%`
+      : "（近 7 天或此前窗口缺少作答，跳过趋势解读）";
+
+  const rhythm = rec(a.rhythm);
+  const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const hourLines = (Array.isArray(rhythm?.hours) ? rhythm.hours : [])
+    .map(rec)
+    .filter((h): h is Record<string, unknown> => h !== null)
+    .map(
+      (h) =>
+        `- ${String(h.hour ?? "?").padStart(2, "0")}:00：${num(h.total) ?? 0} 题 · 正确率 ${num(h.acc) ?? 0}%`,
+    )
+    .join("\n");
+  const dayLines = (Array.isArray(rhythm?.weekdays) ? rhythm.weekdays : [])
+    .map(rec)
+    .filter((d): d is Record<string, unknown> => d !== null)
+    .map(
+      (d) => `- ${weekdays[Number(d.day)] ?? "未知"}：${num(d.total) ?? 0} 题`,
+    )
+    .join("\n");
+  const rhythmParts = [hourLines, dayLines].filter(Boolean);
+  const rhythmBlock = rhythmParts.length
+    ? rhythmParts.join("\n")
+    : "（作息数据不足，跳过节律诊断）";
+
+  const mistakeBlock =
+    rows.length > 0
+      ? `【错题考点分布与错题记录】${truncatedNote}
+${JSON.stringify(rows)}`
+      : "【错题记录】暂无错题记录，跳过错题归因。";
+
+  return `请根据该考生的真实练习数据、学情看板全维度统计与错题记录，生成一份全面的 AI 学情诊断分析报告。
+
+【数据粒度声明（必须遵守）】
+- 能力雷达、分考点正确率与用时效率均基于每题最新一次真实作答；标注「未练习」的维度不得当作 0 分或缺陷评价；
+- 作答用时解读：快而错≈粗心/凭感觉/审题不清；慢而错≈概念不清/方法卡壳/计算反复；慢而对≈方法正确但可提速；快而对≈已熟练。用时缺失或异常（≤0 / ≥600 秒）时标注“用时缺失”，不做速度归因；
+- 学习节律仅由作答时间戳统计而来，只提示练习时段习惯与正确率表现，不做睡眠、健康等医学/生理断言；
+- 涉及认知陷阱时，用「该考点的典型陷阱 + 该考生的数据表现」方式表述，并注明这是推断；
+- 不得虚构“你在某题因为…”这类具体情节，不得编造数据。
+
+${diagnoseStatsOverview(stats)}
+
+【能力雷达（基准 80 为参考值；「未练习」维度不绘制、不评价）】
+${radarLines}
+
+【三板块正确率 · 用时 · 题库覆盖】
+${catLines}
+
+【分考点正确率明细（仅已练习考点）】
+${subBlock}
+
+${archive ? `【已练习考点知识库档案（考试权重与基准正确率为知识库内部估计口径，引用时表述为估计值，不得当作实测事实）】\n${archive}` : ""}
+【用时效率分布】
+${timeLines}
+
+【近 7 天 vs 此前趋势】
+${trendBlock}
+
+【学习节律（真实作答时段与星期分布）】
+${rhythmBlock}
+
+【连续打卡与题库覆盖】
+- 连续打卡：${num(a.streakDays) ?? 0} 天
+- 题库覆盖：${num(a.coveragePct) ?? 0}%
+
+${mistakeBlock}
+
+请输出 Markdown 格式的全面诊断分析报告（数据不足以支撑的段落直接说明并缩短，不硬凑）：
+1. 📊 **能力画像总览**：解读雷达五维与三板块强弱，给出分考点掌握梯队（熟练/中等/薄弱/未练习）。
+2. 🎯 **优先攻坚排序**：结合考试权重、基准正确率与作答数据，指出最需优先提升的 2~3 个考点并给出排序依据；高权重但未练习的考点可一并提示。
+3. ⚠️ **思维误区与速度预警**：按「典型陷阱 + 数据表现」归纳认知陷阱；区分“粗心型失分(快而错)”与“卡壳型失分(慢而错)”，用时数据不足则跳过速度判断。
+4. 🕒 **学习节律诊断**：指出黄金心流时段与疲劳易错时段、星期分布特征，给出与数据匹配的作息安排建议；无节律数据则跳过。
+5. 📈 **趋势解读**：解读近 7 天 vs 此前的进步/退步，并给出标注为推断的原因假设；无趋势数据则跳过。
+6. 💊 **个性化专项提分处方（7天突破规划）**：按“今天/第2-3天/第4-5天/第6-7天”拆解，每天给具体可执行的刷题与复盘动作。
+7. 🚦 **下次做题时的“三秒检查清单”**：给出 3~5 条可立即执行的避错提醒。
+8. 🌟 **专属鼓励与心态建议**：真诚、具体，两三句即可。`;
 }
 
 /**
@@ -819,7 +1002,7 @@ export const PROMPT_TASKS = {
   },
   diagnose: {
     task: "diagnose",
-    description: "错题学情诊断",
+    description: "学情诊断（错题归因 / 学情看板全维度全面诊断）",
     system: DIAGNOSE_SYSTEM,
     temperature: 0.5,
     maxTokens: 8192,
