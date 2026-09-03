@@ -162,7 +162,9 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                     ].map((tab) => (
                         <DrawablyButton
                             key={tab.id}
-                            variant={filterCat === tab.id ? "scribble" : "outline"}
+                            variant={
+                                filterCat === tab.id ? "scribble" : "outline"
+                            }
                             onClick={() => setFilterCat(tab.id as any)}
                             className="!px-3.5 !py-2 font-semibold"
                         >

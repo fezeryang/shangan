@@ -11,6 +11,7 @@ import {
   Clock,
   MessageSquare,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface AIQuestionCardProps {
   question: AIQuestion;
@@ -152,30 +153,26 @@ export const AIQuestionCard: React.FC<AIQuestionCardProps> = ({
             const isSelected = submitted && draft === opt.key;
             const isCorrectOpt = question.correctAnswer === opt.key;
 
-            let btnStyle =
-              "bg-[#fffdfa] border-[#ded3bd] hover:border-[#b45309] text-[#26201a]";
-            if (submitted) {
-              if (isCorrectOpt) {
-                btnStyle =
-                  "bg-[#edf7ee] border-[#4e9658] text-[#14532d] font-semibold";
-              } else if (isSelected && !isCorrectOpt) {
-                btnStyle = "bg-[#fef2f0] border-[#c2410c] text-[#991b1b]";
-              }
-            } else if (draft === opt.key) {
-              btnStyle =
-                "bg-[#fef7eb] border-[#b45309] text-[#26201a] font-semibold ring-1 ring-[#b45309]";
-            }
+            const state: "idle" | "success" | "error" =
+              submitted && isCorrectOpt
+                ? "success"
+                : submitted && isSelected && !isCorrectOpt
+                  ? "error"
+                  : "idle";
+            const dimmed = submitted && !isCorrectOpt && !isSelected;
 
             return (
-              <button
+              <DrawablyButton
                 key={opt.key}
-                type="button"
+                variant="outline"
+                state={state}
                 onClick={() => handleSelect(opt.key)}
-                className={`w-full text-left p-3 rounded-lg border flex ${
+                disabled={submitted}
+                className={`w-full !justify-start text-left !p-3 flex ${
                   opt.svg
                     ? "flex-col items-stretch gap-2"
                     : "items-start gap-2.5"
-                } text-xs transition-all cursor-pointer ${btnStyle}`}
+                } text-xs ${dimmed ? "opacity-50" : ""}`}
               >
                 <span className="w-5 h-5 rounded-full bg-[#f3ead7] flex items-center justify-center font-bold text-[#4a3e31] shrink-0">
                   {opt.key}
@@ -201,7 +198,7 @@ export const AIQuestionCard: React.FC<AIQuestionCardProps> = ({
                 {submitted && isSelected && !isCorrectOpt && (
                   <XCircle className="w-4 h-4 text-[#b91c1c] shrink-0" />
                 )}
-              </button>
+              </DrawablyButton>
             );
           })}
         </div>
@@ -223,12 +220,13 @@ export const AIQuestionCard: React.FC<AIQuestionCardProps> = ({
                   </span>
                 )}
               </div>
-              <button
+              <DrawablyButton
+                tone="neutral"
                 onClick={() => setShowExplanation((prev) => !prev)}
-                className="text-xs font-semibold text-[#6e6153] hover:text-[#26201a] cursor-pointer bg-[#faf5ec] px-2.5 py-1 rounded-lg border border-[#e3d8c2]"
+                className="!px-2.5 !py-1 text-xs font-semibold"
               >
                 {showExplanation ? "收起题解" : "查看题解"}
-              </button>
+              </DrawablyButton>
             </div>
 
             {showExplanation && (
@@ -243,21 +241,26 @@ export const AIQuestionCard: React.FC<AIQuestionCardProps> = ({
             )}
 
             <div className="flex justify-end gap-2">
-              <button
+              <DrawablyButton
                 onClick={onOpenAI}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#fef7ea] hover:bg-[#faeed6] text-[#854d0e] border border-[#e8d5b0] rounded-lg text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b45309]"
+                className="!px-3 !py-1.5 text-xs font-semibold"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-[#b45309]" />
-                <span>问 AI</span>
-              </button>
-              <button
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>问 AI</span>
+                </span>
+              </DrawablyButton>
+              <DrawablyButton
+                tone="neutral"
                 onClick={handleReset}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#faf5ec] hover:bg-[#f0e7d6] text-[#786c5e] hover:text-[#26201a] border border-[#ded2bd] rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                className="!px-2.5 !py-1.5 text-xs font-medium"
                 title="清除本题作答，重新独立思考"
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>重新作答</span>
-              </button>
+                <span className="flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3" />
+                  <span>重新作答</span>
+                </span>
+              </DrawablyButton>
             </div>
           </div>
         )}

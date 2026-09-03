@@ -207,7 +207,7 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                 {[5, 10, 15].map((len) => (
                   <DrawablyButton
                     key={len}
-                    variant={examLength === len ? 'scribble' : 'outline'}
+                    variant={examLength === len ? "scribble" : "outline"}
                     onClick={() => setExamLength(len)}
                     className="!py-2 text-xs font-bold"
                   >
@@ -325,7 +325,9 @@ export const ExamMode: React.FC<ExamModeProps> = ({
             </div>
 
             <DrawablyButton
-              variant={markedQuestions.includes(currentQ.id) ? 'scribble' : 'outline'}
+              variant={
+                markedQuestions.includes(currentQ.id) ? "scribble" : "outline"
+              }
               onClick={() => {
                 setMarkedQuestions((prev) =>
                   prev.includes(currentQ.id)
@@ -335,7 +337,9 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               }}
               className="!px-2.5 !py-1 text-xs font-semibold"
             >
-              {markedQuestions.includes(currentQ.id) ? "★ 已标记存疑" : "☆ 标记存疑"}
+              {markedQuestions.includes(currentQ.id)
+                ? "★ 已标记存疑"
+                : "☆ 标记存疑"}
             </DrawablyButton>
           </div>
 

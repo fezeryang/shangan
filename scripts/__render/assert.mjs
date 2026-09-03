@@ -1,7 +1,7 @@
 /* Computed-style assertions for MarkdownRenderer, built with the app's real vite+tailwind v4 toolchain.
  *
  * Usage:
- *   cd beiseng/scripts/__render && npx vite build && npx vite preview --port 4178 &
+ *   cd shangan/scripts/__render && npx vite build && npx vite preview --port 4178 &
  *   PLAYWRIGHT_IMPORT=<path-to-playwright/index.mjs> node assert.mjs
  */
 const playwrightPath = process.env.PLAYWRIGHT_IMPORT || '/home/fezer/projects/the_card/node_modules/playwright/index.mjs';

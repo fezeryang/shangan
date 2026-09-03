@@ -13,6 +13,7 @@ import {
   Timer,
   Smile,
 } from 'lucide-react';
+import { DrawablyButton, DrawablyInput } from 'drawably/react';
 
 export interface StudyReminderConfig {
   enabled: boolean;
@@ -187,22 +188,18 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
             {PRESETS.map((p) => {
               const isSelected = selectedMinutes === p.mins;
               return (
-                <button
+                <DrawablyButton
                   key={p.mins}
-                  type="button"
+                  variant={isSelected ? 'scribble' : 'outline'}
                   onClick={() => {
                     setSelectedMinutes(p.mins);
                     setCustomMinutes('');
                   }}
-                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-[#b45309] bg-[#fef7eb] text-[#854d0e] font-bold ring-2 ring-[#b45309]/30 shadow-2xs'
-                      : 'border-[#ded2bd] bg-[#fffdfa] text-[#5c4e3f] hover:border-[#b45309] hover:bg-[#faf6ed]'
-                  }`}
+                  className="!p-3 text-center"
                 >
-                  <div className="text-sm font-bold">{p.label}</div>
-                  <div className="text-[10px] text-[#8c7e6d] mt-0.5">{p.desc}</div>
-                </button>
+                  <span className="block text-sm font-display font-bold">{p.label}</span>
+                  <span className="block text-[10px] text-[#786c5e] mt-0.5">{p.desc}</span>
+                </DrawablyButton>
               );
             })}
           </div>
@@ -210,7 +207,7 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
           {/* Custom Duration Input */}
           <div className="flex items-center gap-2 pt-1">
             <span className="text-xs text-[#786c5e]">或自定义：</span>
-            <input
+            <DrawablyInput
               type="number"
               min="1"
               max="240"
@@ -224,7 +221,7 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
                   setSelectedMinutes(num);
                 }
               }}
-              className="px-3 py-1.5 text-xs bg-[#fffdfa] border border-[#ded2bd] rounded-xl text-[#26201a] focus:outline-[#b45309] w-36 font-mono"
+              className="w-36 !px-3 !py-1.5 text-xs bg-[var(--card)] text-[color:var(--ink)] font-mono"
             />
             <span className="text-xs text-[#786c5e]">分钟</span>
           </div>
@@ -293,21 +290,23 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#ede4d3]">
-          <button
-            type="button"
+          <DrawablyButton
+            tone="neutral"
             onClick={onClose}
-            className="px-4 py-2.5 bg-[#f5efe4] hover:bg-[#ebdcc8] text-[#4a3e31] font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-[#ded2bd]"
+            className="!px-4 !py-2.5 text-xs font-semibold"
           >
             关闭
-          </button>
-          <button
-            type="button"
+          </DrawablyButton>
+          <DrawablyButton
+            variant="solid"
             onClick={() => handleStartTimer(selectedMinutes)}
-            className="px-5 py-2.5 bg-gradient-to-r from-[#b45309] to-[#c2410c] hover:from-[#9a3412] hover:to-[#a13208] text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            className="!px-5 !py-2.5 text-xs font-bold"
           >
-            <Play className="w-4 h-4 fill-current" />
-            <span>开启 {selectedMinutes} 分钟专注提醒</span>
-          </button>
+            <span className="flex items-center gap-1.5">
+              <Play className="w-4 h-4 fill-current" />
+              <span>开启 {selectedMinutes} 分钟专注提醒</span>
+            </span>
+          </DrawablyButton>
         </div>
       </div>
     </div>
@@ -347,7 +346,7 @@ export const GentleAlertModal: React.FC<GentleAlertModalProps> = ({
         <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-[#fef3c7]/70 animate-ping opacity-75 duration-1000" />
           <div className="relative w-18 h-18 rounded-full bg-gradient-to-tr from-[#b45309] to-[#ea580c] flex items-center justify-center text-white shadow-lg shadow-amber-600/30">
-            <Coffee className="w-9 h-9 animate-bounce" />
+            <Coffee className="w-9 h-9 animate-in fade-in duration-500" />
           </div>
         </div>
 
@@ -378,31 +377,34 @@ export const GentleAlertModal: React.FC<GentleAlertModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
-          <button
-            type="button"
+          <DrawablyButton
+            tone="neutral"
             onClick={() => onSnooze(5)}
-            className="w-full sm:w-auto flex-1 px-4 py-2.5 bg-[#f6eee0] hover:bg-[#ebdcc8] text-[#4a3e31] font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-[#ded2bd] flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto flex-1 !px-4 !py-2.5 text-xs font-semibold"
           >
-            <Clock className="w-3.5 h-3.5 text-[#b45309]" />
-            <span>休息 5 分钟 (稍后提醒)</span>
-          </button>
+            <span className="flex items-center justify-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#b45309]" />
+              <span>休息 5 分钟 (稍后提醒)</span>
+            </span>
+          </DrawablyButton>
 
-          <button
-            type="button"
+          <DrawablyButton
             onClick={() => onSnooze(25)}
-            className="w-full sm:w-auto flex-1 px-4 py-2.5 bg-[#fef7ea] hover:bg-[#faedd1] text-[#854d0e] font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-[#ebdcb9] flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto flex-1 !px-4 !py-2.5 text-xs font-semibold"
           >
-            <Timer className="w-3.5 h-3.5 text-[#b45309]" />
-            <span>再战 25 分钟番茄钟</span>
-          </button>
+            <span className="flex items-center justify-center gap-1.5">
+              <Timer className="w-3.5 h-3.5 text-[#b45309]" />
+              <span>再战 25 分钟番茄钟</span>
+            </span>
+          </DrawablyButton>
 
-          <button
-            type="button"
+          <DrawablyButton
+            variant="solid"
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 bg-[#b45309] hover:bg-[#9a3412] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+            className="w-full sm:w-auto !px-5 !py-2.5 text-xs font-bold"
           >
             我知道啦
-          </button>
+          </DrawablyButton>
         </div>
       </div>
     </div>

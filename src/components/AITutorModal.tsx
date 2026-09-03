@@ -14,6 +14,7 @@ import {
   XCircle,
   Lightbulb,
 } from "lucide-react";
+import { DrawablyButton, DrawablyInput } from "drawably/react";
 
 interface AITutorModalProps {
   isOpen: boolean;
@@ -325,66 +326,62 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
 
         {/* Tab Navigation */}
         <div className="flex border-b border-[#e8ded0] bg-[#f8f3e8] px-4 text-xs font-semibold overflow-x-auto no-scrollbar">
-          <button
+          <DrawablyButton
+            variant={activeTab === "explain" ? "scribble" : "outline"}
             onClick={() => {
               setActiveTab("explain");
               if (!explanation) fetchExplanation();
             }}
-            className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === "explain"
-                ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
-                : "border-transparent text-[#6e6153] hover:text-[#26201a]"
-            }`}
+            className="!py-2 !px-3 whitespace-nowrap"
           >
-            <Lightbulb className="w-3.5 h-3.5" />
-            <span>AI 思维链拆解 (CoT)</span>
-          </button>
+            <span className="flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" />
+              <span>AI 思维链拆解 (CoT)</span>
+            </span>
+          </DrawablyButton>
 
           {question?.category === "graphic" && (
-            <button
+            <DrawablyButton
+              variant={activeTab === "graphic" ? "scribble" : "outline"}
               onClick={() => {
                 setActiveTab("graphic");
                 if (!graphicAnalysis) fetchGraphicPattern();
               }}
-              className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-                activeTab === "graphic"
-                  ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
-                  : "border-transparent text-[#6e6153] hover:text-[#26201a]"
-              }`}
+              className="!py-2 !px-3 whitespace-nowrap"
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>图推视觉规律透析</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                <span>图推视觉规律透析</span>
+              </span>
+            </DrawablyButton>
           )}
 
           {!isAIQuestion && (
-            <button
+            <DrawablyButton
+              variant={activeTab === "variant" ? "scribble" : "outline"}
               onClick={() => {
                 setActiveTab("variant");
                 if (!variantQuestion) generateVariant();
               }}
-              className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-                activeTab === "variant"
-                  ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
-                  : "border-transparent text-[#6e6153] hover:text-[#26201a]"
-              }`}
+              className="!py-2 !px-3 whitespace-nowrap"
             >
-              <Repeat className="w-3.5 h-3.5" />
-              <span>举一反三变式训练</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <Repeat className="w-3.5 h-3.5" />
+                <span>举一反三变式训练</span>
+              </span>
+            </DrawablyButton>
           )}
 
-          <button
+          <DrawablyButton
+            variant={activeTab === "chat" ? "scribble" : "outline"}
             onClick={() => setActiveTab("chat")}
-            className={`flex items-center gap-1.5 py-3 px-3 border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
-              activeTab === "chat"
-                ? "border-[#b45309] text-[#b45309] bg-[#fdfbf7]"
-                : "border-transparent text-[#6e6153] hover:text-[#26201a]"
-            }`}
+            className="!py-2 !px-3 whitespace-nowrap"
           >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>自由智能追问 ({chatMessages.length - 1})</span>
-          </button>
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>自由智能追问 ({chatMessages.length - 1})</span>
+            </span>
+          </DrawablyButton>
         </div>
 
         {/* Modal Body */}
@@ -675,21 +672,24 @@ export const AITutorModal: React.FC<AITutorModalProps> = ({
                 onSubmit={handleSendChat}
                 className="mt-3 pt-3 border-t border-[#e8ded0] flex gap-2"
               >
-                <input
+                <DrawablyInput
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="针对本题提问，如：“为什么不选B选项？”、“图推还有哪些旋转技巧？”"
-                  className="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-[#fffdfa] border border-[#ded3bd] rounded-xl focus:outline-[#b45309] text-[#26201a]"
+                  className="flex-1 !px-3.5 !py-2 text-xs sm:text-sm bg-[var(--card)] text-[color:var(--ink)]"
                 />
-                <button
+                <DrawablyButton
                   type="submit"
+                  variant="solid"
                   disabled={loadingChat || !chatInput.trim()}
-                  className="px-4 py-2 bg-[#b45309] hover:bg-[#9a3412] disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  className="!px-4 !py-2 text-xs sm:text-sm font-semibold"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>发送</span>
-                </button>
+                  <span className="flex items-center gap-1.5">
+                    <Send className="w-3.5 h-3.5" />
+                    <span>发送</span>
+                  </span>
+                </DrawablyButton>
               </form>
             </div>
           )}

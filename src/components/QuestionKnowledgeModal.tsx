@@ -23,6 +23,7 @@ import {
   RotateCcw,
   Target,
 } from 'lucide-react';
+import { DrawablyButton } from 'drawably/react';
 
 interface QuestionKnowledgeModalProps {
   isOpen: boolean;
@@ -651,27 +652,21 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="text-[#8c7e6d] font-semibold">图谱视野:</span>
-                <div className="bg-[#f3ece0] p-0.5 rounded-lg flex">
-                  <button
+                <div className="flex gap-1.5">
+                  <DrawablyButton
+                    variant={viewMode === 'focused' ? 'scribble' : 'outline'}
                     onClick={() => setViewMode('focused')}
-                    className={`px-3 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                      viewMode === 'focused'
-                        ? 'bg-[#fffdfa] text-[#b45309] shadow-2xs'
-                        : 'text-[#786c5e] hover:text-[#26201a]'
-                    }`}
+                    className="!px-3 !py-1 font-semibold"
                   >
                     🎯 本题考点网络 (推荐)
-                  </button>
-                  <button
+                  </DrawablyButton>
+                  <DrawablyButton
+                    variant={viewMode === 'global' ? 'scribble' : 'outline'}
                     onClick={() => setViewMode('global')}
-                    className={`px-3 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                      viewMode === 'global'
-                        ? 'bg-[#fffdfa] text-[#b45309] shadow-2xs'
-                        : 'text-[#786c5e] hover:text-[#26201a]'
-                    }`}
+                    className="!px-3 !py-1 font-semibold"
                   >
                     🌐 全科全景图谱
-                  </button>
+                  </DrawablyButton>
                 </div>
               </div>
 
@@ -863,16 +858,19 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
 
               {/* Action Button: Jump to practice this subcategory */}
               {onNavigateToSubCategory && activePointInfo.questionCount > 0 && (
-                <button
+                <DrawablyButton
+                  variant="solid"
                   onClick={() => {
                     onNavigateToSubCategory(activePointInfo.point.category, activePointInfo.point.shortName);
                     onClose();
                   }}
-                  className="px-3.5 py-1.5 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95 text-xs"
+                  className="!px-3.5 !py-1.5 font-semibold text-xs"
                 >
-                  <Target className="w-3.5 h-3.5" />
-                  <span>专项练习此考点 ({activePointInfo.questionCount} 题)</span>
-                </button>
+                  <span className="flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5" />
+                    <span>专项练习此考点 ({activePointInfo.questionCount} 题)</span>
+                  </span>
+                </DrawablyButton>
               )}
             </div>
           </div>
@@ -883,12 +881,13 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           <div className="text-[#786c5e]">
             已收录全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 · 覆盖真题 {allQuestions.length} 道
           </div>
-          <button
+          <DrawablyButton
+            variant="solid"
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#2c241d] hover:bg-[#3d3124] text-white font-semibold rounded-lg cursor-pointer transition-colors"
+            className="!px-4 !py-1.5 font-semibold"
           >
             返回做题
-          </button>
+          </DrawablyButton>
         </div>
       </div>
     </div>

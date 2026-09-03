@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Question, StudyStats, UserAnswerRecord } from '../types';
-import { allQuestions, categoryMeta } from '../data/allQuestions';
-import { QuestionCard } from './QuestionCard';
+import React, { useState, useMemo } from "react";
+import type { Question, StudyStats, UserAnswerRecord } from "../types";
+import { allQuestions, categoryMeta } from "../data/allQuestions";
+import { QuestionCard } from "./QuestionCard";
 import {
   BookOpen,
   Search,
@@ -11,11 +11,14 @@ import {
   Shapes,
   BarChart3,
   SlidersHorizontal,
-} from 'lucide-react';
-import { DrawablyButton, DrawablyInput, DrawablySelect } from 'drawably/react';
+} from "lucide-react";
+import { DrawablyButton, DrawablyInput, DrawablySelect } from "drawably/react";
 
 interface PracticeModeProps {
-  onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat', q?: Question) => void;
+  onOpenAI: (
+    tab: "explain" | "graphic" | "variant" | "chat",
+    q?: Question,
+  ) => void;
   onRecordAnswer: (record: UserAnswerRecord) => void;
   onAddMistake: (qId: string) => void;
   favorites: string[];
@@ -24,7 +27,7 @@ interface PracticeModeProps {
   onSaveNote: (id: string, note: string) => void;
   answeredMap: Record<string, string>;
   onResetAnswer?: (qId: string) => void;
-  initialCategory?: 'all' | 'verbal' | 'data' | 'graphic';
+  initialCategory?: "all" | "verbal" | "data" | "graphic";
   initialSubCategory?: string;
   stats: StudyStats;
   answerRecords: UserAnswerRecord[];
@@ -41,17 +44,24 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
   onSaveNote,
   answeredMap,
   onResetAnswer,
-  initialCategory = 'all',
-  initialSubCategory = 'all',
+  initialCategory = "all",
+  initialSubCategory = "all",
   stats,
   answerRecords,
   onNavigateToSubCategory,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'verbal' | 'data' | 'graphic'>(initialCategory);
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>(initialSubCategory);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<number | 'all'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'unanswered' | 'answered' | 'favorite'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<
+    "all" | "verbal" | "data" | "graphic"
+  >(initialCategory);
+  const [selectedSubCategory, setSelectedSubCategory] =
+    useState<string>(initialSubCategory);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<number | "all">(
+    "all",
+  );
+  const [selectedStatus, setSelectedStatus] = useState<
+    "all" | "unanswered" | "answered" | "favorite"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [instantSubmitMode, setInstantSubmitMode] = useState<boolean>(false);
 
   React.useEffect(() => {
@@ -60,12 +70,12 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
   }, [initialCategory, initialSubCategory]);
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<'single' | 'list'>('single');
+  const [viewMode, setViewMode] = useState<"single" | "list">("single");
 
   // Compute Sub-categories
   const availableSubCategories = useMemo(() => {
     let pool = allQuestions;
-    if (selectedCategory !== 'all') {
+    if (selectedCategory !== "all") {
       pool = pool.filter((q) => q.category === selectedCategory);
     }
     const subs = Array.from(new Set(pool.map((q) => q.subCategory)));
@@ -76,18 +86,25 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
   const filteredQuestions = useMemo(() => {
     return allQuestions.filter((q) => {
       // Category filter
-      if (selectedCategory !== 'all' && q.category !== selectedCategory) return false;
+      if (selectedCategory !== "all" && q.category !== selectedCategory)
+        return false;
       // Sub-category filter
-      if (selectedSubCategory !== 'all' && q.subCategory !== selectedSubCategory) return false;
+      if (
+        selectedSubCategory !== "all" &&
+        q.subCategory !== selectedSubCategory
+      )
+        return false;
       // Difficulty filter
-      if (selectedDifficulty !== 'all') {
-        const star = q.difficulty === 'hard' ? 5 : q.difficulty === 'medium' ? 4 : 3;
+      if (selectedDifficulty !== "all") {
+        const star =
+          q.difficulty === "hard" ? 5 : q.difficulty === "medium" ? 4 : 3;
         if (star !== selectedDifficulty) return false;
       }
       // Status filter
-      if (selectedStatus === 'unanswered' && answeredMap[q.id]) return false;
-      if (selectedStatus === 'answered' && !answeredMap[q.id]) return false;
-      if (selectedStatus === 'favorite' && !favorites.includes(q.id)) return false;
+      if (selectedStatus === "unanswered" && answeredMap[q.id]) return false;
+      if (selectedStatus === "answered" && !answeredMap[q.id]) return false;
+      if (selectedStatus === "favorite" && !favorites.includes(q.id))
+        return false;
       // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -98,13 +115,28 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
       }
       return true;
     });
-  }, [selectedCategory, selectedSubCategory, selectedDifficulty, selectedStatus, searchQuery, answeredMap, favorites]);
+  }, [
+    selectedCategory,
+    selectedSubCategory,
+    selectedDifficulty,
+    selectedStatus,
+    searchQuery,
+    answeredMap,
+    favorites,
+  ]);
 
   // Ensure currentIndex is in bounds
-  const safeIndex = Math.min(currentIndex, Math.max(0, filteredQuestions.length - 1));
+  const safeIndex = Math.min(
+    currentIndex,
+    Math.max(0, filteredQuestions.length - 1),
+  );
   const currentQ = filteredQuestions[safeIndex];
 
-  const handleSelectOption = (question: Question, optionKey: string, timeSpentSec = 30) => {
+  const handleSelectOption = (
+    question: Question,
+    optionKey: string,
+    timeSpentSec = 30,
+  ) => {
     const isCorrect = optionKey === question.correctAnswer;
     onRecordAnswer({
       questionId: question.id,
@@ -131,10 +163,10 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
       {/* Category Selection Cards：手绘选科卡，选中=涂鸦填充 */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <DrawablyButton
-          variant={selectedCategory === 'all' ? 'scribble' : 'outline'}
+          variant={selectedCategory === "all" ? "scribble" : "outline"}
           onClick={() => {
-            setSelectedCategory('all');
-            setSelectedSubCategory('all');
+            setSelectedCategory("all");
+            setSelectedSubCategory("all");
             setCurrentIndex(0);
           }}
           className="!block w-full text-left !p-4"
@@ -144,20 +176,29 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
               <span className="text-xs font-bold tracking-wider">全部题库</span>
               <BookOpen className="w-4 h-4 opacity-80" />
             </span>
-            <span className="block text-xl font-extrabold mt-2 font-display">{allQuestions.length} 题</span>
-            <span className="block text-[11px] opacity-75 mt-0.5">全科综合全真模拟覆盖</span>
+            <span className="block text-xl font-extrabold mt-2 font-display">
+              {allQuestions.length} 题
+            </span>
+            <span className="block text-[11px] opacity-75 mt-0.5">
+              全科综合全真模拟覆盖
+            </span>
           </span>
         </DrawablyButton>
 
         {Object.entries(categoryMeta).map(([catKey, meta]) => {
-          const Icon = catKey === 'verbal' ? BookOpen : catKey === 'data' ? BarChart3 : Shapes;
+          const Icon =
+            catKey === "verbal"
+              ? BookOpen
+              : catKey === "data"
+                ? BarChart3
+                : Shapes;
           return (
             <DrawablyButton
               key={catKey}
-              variant={selectedCategory === catKey ? 'scribble' : 'outline'}
+              variant={selectedCategory === catKey ? "scribble" : "outline"}
               onClick={() => {
                 setSelectedCategory(catKey as any);
-                setSelectedSubCategory('all');
+                setSelectedSubCategory("all");
                 setCurrentIndex(0);
               }}
               className="!block w-full text-left !p-4"
@@ -167,8 +208,12 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
                   <span className="text-xs font-bold">{meta.shortName}</span>
                   <Icon className="w-4 h-4 opacity-80" />
                 </span>
-                <span className="block text-xl font-extrabold mt-2 font-display">{meta.count} 题</span>
-                <span className="block text-[11px] opacity-80 mt-0.5 line-clamp-1">{meta.name}</span>
+                <span className="block text-xl font-extrabold mt-2 font-display">
+                  {meta.count} 题
+                </span>
+                <span className="block text-[11px] opacity-80 mt-0.5 line-clamp-1">
+                  {meta.name}
+                </span>
               </span>
             </DrawablyButton>
           );
@@ -180,16 +225,18 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Subcategory Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            <span className="text-[#8c7e6d] font-medium shrink-0">细分考点:</span>
+            <span className="text-[#8c7e6d] font-medium shrink-0">
+              细分考点:
+            </span>
             <button
               onClick={() => {
-                setSelectedSubCategory('all');
+                setSelectedSubCategory("all");
                 setCurrentIndex(0);
               }}
               className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                selectedSubCategory === 'all'
-                  ? 'bg-[#fef7ea] text-[#854d0e] font-bold border border-[#ebdcb9]'
-                  : 'bg-[#f5eee3] text-[#6e6153] hover:bg-[#ede3d3]'
+                selectedSubCategory === "all"
+                  ? "bg-[#fef7ea] text-[#854d0e] font-bold border border-[#ebdcb9]"
+                  : "bg-[#f5eee3] text-[#6e6153] hover:bg-[#ede3d3]"
               }`}
             >
               全部细分
@@ -203,8 +250,8 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
                 }}
                 className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   selectedSubCategory === sub
-                    ? 'bg-[#fef7ea] text-[#854d0e] font-bold border border-[#ebdcb9]'
-                    : 'bg-[#f5eee3] text-[#6e6153] hover:bg-[#ede3d3]'
+                    ? "bg-[#fef7ea] text-[#854d0e] font-bold border border-[#ebdcb9]"
+                    : "bg-[#f5eee3] text-[#6e6153] hover:bg-[#ede3d3]"
                 }`}
               >
                 {sub}
@@ -227,17 +274,21 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
 
             <div className="bg-[#f3ece0] p-0.5 rounded-lg flex text-xs">
               <button
-                onClick={() => setViewMode('single')}
+                onClick={() => setViewMode("single")}
                 className={`px-2.5 py-1 rounded-md font-medium cursor-pointer transition-colors ${
-                  viewMode === 'single' ? 'bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs' : 'text-[#786c5e]'
+                  viewMode === "single"
+                    ? "bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs"
+                    : "text-[#786c5e]"
                 }`}
               >
                 逐题精练
               </button>
               <button
-                onClick={() => setViewMode('list')}
+                onClick={() => setViewMode("list")}
                 className={`px-2.5 py-1 rounded-md font-medium cursor-pointer transition-colors ${
-                  viewMode === 'list' ? 'bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs' : 'text-[#786c5e]'
+                  viewMode === "list"
+                    ? "bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs"
+                    : "text-[#786c5e]"
                 }`}
               >
                 全卷列表
@@ -265,7 +316,9 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
             <DrawablySelect
               value={selectedDifficulty}
               onChange={(e: any) =>
-                setSelectedDifficulty(e.target.value === 'all' ? 'all' : Number(e.target.value))
+                setSelectedDifficulty(
+                  e.target.value === "all" ? "all" : Number(e.target.value),
+                )
               }
               className="!px-2.5 !py-1 text-xs bg-[var(--card)] text-[color:var(--ink)]"
             >
@@ -277,14 +330,20 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
 
             {/* Submit Mode Toggle */}
             <DrawablyButton
-              variant={instantSubmitMode ? 'scribble' : 'outline'}
+              variant={instantSubmitMode ? "scribble" : "outline"}
               onClick={() => setInstantSubmitMode(!instantSubmitMode)}
               className="!px-2.5 !py-1 text-xs font-medium"
-              title={instantSubmitMode ? '当前模式：点击选项即时判定' : '当前模式：选择选项后需点击确认提交'}
+              title={
+                instantSubmitMode
+                  ? "当前模式：点击选项即时判定"
+                  : "当前模式：选择选项后需点击确认提交"
+              }
             >
               <span className="flex items-center gap-1">
                 <SlidersHorizontal className="w-3 h-3" />
-                <span>{instantSubmitMode ? '模式：即选即判' : '模式：确认后核对'}</span>
+                <span>
+                  {instantSubmitMode ? "模式：即选即判" : "模式：确认后核对"}
+                </span>
               </span>
             </DrawablyButton>
           </div>
@@ -307,16 +366,22 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
       {filteredQuestions.length === 0 ? (
         <div className="bg-[#fdfbf7] rounded-2xl p-12 text-center border border-[#e3d9c4] space-y-2">
           <BookOpen className="w-8 h-8 text-[#ded2bd] mx-auto" />
-          <h3 className="font-bold text-[#26201a] text-sm sm:text-base">没有找到符合条件的题目</h3>
-          <p className="text-xs text-[#786c5e]">试着调整一下分类、难度或清除搜索词</p>
+          <h3 className="font-bold text-[#26201a] text-sm sm:text-base">
+            没有找到符合条件的题目
+          </h3>
+          <p className="text-xs text-[#786c5e]">
+            试着调整一下分类、难度或清除搜索词
+          </p>
         </div>
-      ) : viewMode === 'single' && currentQ ? (
+      ) : viewMode === "single" && currentQ ? (
         /* SINGLE QUESTION MODE */
         <div className="space-y-4">
           <QuestionCard
             question={currentQ}
             selectedOption={answeredMap[currentQ.id]}
-            onSelectOption={(key, timeSpentSec) => handleSelectOption(currentQ, key, timeSpentSec)}
+            onSelectOption={(key, timeSpentSec) =>
+              handleSelectOption(currentQ, key, timeSpentSec)
+            }
             isAnswered={!!answeredMap[currentQ.id]}
             onResetAnswer={onResetAnswer}
             onOpenAI={(tab) => onOpenAI(tab, currentQ)}
@@ -347,12 +412,18 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
             </DrawablyButton>
 
             <div className="text-xs text-[color:var(--ink-soft)] font-medium font-display">
-              <span>{safeIndex + 1} / {filteredQuestions.length}</span>
+              <span>
+                {safeIndex + 1} / {filteredQuestions.length}
+              </span>
             </div>
 
             <DrawablyButton
               variant="solid"
-              onClick={() => setCurrentIndex((prev) => Math.min(filteredQuestions.length - 1, prev + 1))}
+              onClick={() =>
+                setCurrentIndex((prev) =>
+                  Math.min(filteredQuestions.length - 1, prev + 1),
+                )
+              }
               disabled={safeIndex === filteredQuestions.length - 1}
               className="!px-4 !py-2 text-xs font-bold"
             >
@@ -371,7 +442,9 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
               key={q.id}
               question={q}
               selectedOption={answeredMap[q.id]}
-              onSelectOption={(key, timeSpentSec) => handleSelectOption(q, key, timeSpentSec)}
+              onSelectOption={(key, timeSpentSec) =>
+                handleSelectOption(q, key, timeSpentSec)
+              }
               isAnswered={!!answeredMap[q.id]}
               onResetAnswer={onResetAnswer}
               onOpenAI={(tab) => onOpenAI(tab, q)}

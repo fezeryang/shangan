@@ -669,20 +669,20 @@ export const App: React.FC = () => {
         onSnooze={handleSnoozeReminder}
       />
 
-      {/* Footer */}
-      <footer className="border-t border-[#e3d9c4] bg-[#fdfbf7] py-6 mt-12 text-center text-xs text-[#786c5e]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>
-            © 2026 上岸测评智能备考学习平台 · 全真题库 & AI 思维链智能导学系统
-          </span>
-          <div className="flex items-center gap-4 text-[#8c7e6d]">
+      {/* Footer：练习手账的落款 */}
+      <footer className="border-t border-dashed border-[#cdbb97] bg-[var(--card)] py-7 mt-12 text-xs text-[color:var(--ink-soft)]">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-center sm:text-left">
+            <strong className="font-display text-base text-[color:var(--ink)]">上岸测评</strong>
+            <span className="ml-2">© 2026 · 把每次练习，写成上岸进度</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[#8c7e6d]">
             <span>言语理解</span>
-            <span>·</span>
+            <span aria-hidden="true">×</span>
             <span>资料分析</span>
-            <span>·</span>
+            <span aria-hidden="true">×</span>
             <span>复杂图推</span>
-            <span>·</span>
-            <span>多模型 AI 引擎驱动</span>
+            <span className="text-[color:var(--ink-accent)]">AI 导学</span>
           </div>
         </div>
       </footer>

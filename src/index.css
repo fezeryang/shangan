@@ -61,12 +61,16 @@ body::after {
   --drawably-ink: #7c3a0c;
 }
 
-/* 涂鸦填充态：hatch 降至 45% 透明度、文字改深墨——手账感不减、填充上文字可读 */
+/* 涂鸦填充态：淡化 hatch 并把内容提到笔迹上方，避免选中标签被斜线淹没 */
 .drawably-svg .drawably-scribble {
-  opacity: 0.45;
+  opacity: 0.18;
 }
 .drawably-button--scribble {
   color: #33291d;
+}
+.drawably-button > :not(.drawably-svg) {
+  position: relative;
+  z-index: 1;
 }
 
 /* 浏览器表面统一墨色 */

@@ -1,5 +1,6 @@
 import React from 'react';
 import { RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { DrawablyButton } from 'drawably/react';
 
 interface ResetConfirmModalProps {
   isOpen: boolean;
@@ -54,35 +55,37 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#ded3bd] text-center">
             <div className="bg-[#fffdfa] p-2 rounded-xl border border-[#ded3bd]">
               <span className="text-[#8c7e6d] text-[11px]">当前已刷题数</span>
-              <div className="font-bold text-[#26201a] text-base mt-0.5">{answeredCount} 题</div>
+              <div className="font-bold font-display text-[#26201a] text-lg mt-0.5">{answeredCount} 题</div>
             </div>
             <div className="bg-[#fffdfa] p-2 rounded-xl border border-[#ded3bd]">
               <span className="text-[#8c7e6d] text-[11px]">收录错题数</span>
-              <div className="font-bold text-[#b91c1c] text-base mt-0.5">{mistakeCount} 题</div>
+              <div className="font-bold font-display text-[#b91c1c] text-lg mt-0.5">{mistakeCount} 题</div>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-3 pt-1">
-          <button
-            type="button"
+          <DrawablyButton
+            tone="neutral"
             onClick={onClose}
-            className="px-4 py-2.5 bg-[#f5efe4] hover:bg-[#ebdcc8] text-[#4a3e31] font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-[#ded2bd]"
+            className="!px-4 !py-2.5 text-xs font-semibold"
           >
             取消
-          </button>
-          <button
-            type="button"
+          </DrawablyButton>
+          <DrawablyButton
+            tone="danger"
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className="px-5 py-2.5 bg-[#b91c1c] hover:bg-[#991b1b] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            className="!px-5 !py-2.5 text-xs font-semibold"
           >
-            <RotateCcw className="w-4 h-4" />
-            <span>确认立即重置</span>
-          </button>
+            <span className="flex items-center gap-1.5">
+              <RotateCcw className="w-4 h-4" />
+              <span>确认立即重置</span>
+            </span>
+          </DrawablyButton>
         </div>
       </div>
     </div>

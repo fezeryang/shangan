@@ -31,6 +31,7 @@ import {
   GraduationCap,
   X,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 type LabTab = "overlay" | "rotate" | "bitwise" | "count" | "group5";
 
@@ -536,18 +537,16 @@ export const PatternLab: React.FC<PatternLabProps> = ({
             演示器把规律「变化过程」一步步放给你看，还可在真题图上点数计数、圈选标记，答完先看规律重演再读解析。
           </p>
         </div>
-        <button
-          type="button"
+        <DrawablyButton
+          variant={guided ? "scribble" : "outline"}
           onClick={() => setGuided((v) => !v)}
-          className={`mt-4 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors ${
-            guided
-              ? "bg-[#b45309] text-white"
-              : "bg-[#f6efe2] hover:bg-[#ede3d3] text-[#4a3e31]"
-          }`}
+          className="mt-4 !px-4 !py-2 text-xs font-semibold"
         >
-          <GraduationCap className="w-4 h-4" />
-          {guided ? "退出新手引导" : "新手引导（预习 → 跟练 → 独立做题）"}
-        </button>
+          <span className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4" />
+            <span>{guided ? "退出新手引导" : "新手引导（预习 → 跟练 → 独立做题）"}</span>
+          </span>
+        </DrawablyButton>
       </div>
 
       {/* 正确率 <60% 触发横幅（D10，可永久忽略） */}
@@ -591,20 +590,19 @@ export const PatternLab: React.FC<PatternLabProps> = ({
       ) : (
         <>
           {/* Lab Nav Tabs */}
-          <div className="flex border-b border-[#e3d9c4] bg-[#fdfbf7] rounded-xl p-1 shadow-2xs gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 text-xs sm:text-sm">
             {(Object.keys(TAB_META) as LabTab[]).map((key) => (
-              <button
+              <DrawablyButton
                 key={key}
+                variant={labTab === key ? "scribble" : "outline"}
                 onClick={() => setLabTab(key)}
-                className={`flex-1 min-w-fit py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                  labTab === key
-                    ? "bg-[#b45309] text-white shadow-xs"
-                    : "text-[#6e6153] hover:bg-[#f6eee0]"
-                }`}
+                className="flex-1 min-w-fit !py-2.5 !px-3 font-semibold whitespace-nowrap"
               >
-                {TAB_META[key].icon}
-                <span>{TAB_META[key].title}</span>
-              </button>
+                <span className="flex items-center justify-center gap-2">
+                  {TAB_META[key].icon}
+                  <span>{TAB_META[key].title}</span>
+                </span>
+              </DrawablyButton>
             ))}
           </div>
 
@@ -630,37 +628,21 @@ export const PatternLab: React.FC<PatternLabProps> = ({
                     的线条开关，观察右侧叠加结果；再回到上方真题验证同一规律
                   </p>
                 </div>
-                <div className="flex items-center gap-2 bg-[#f6efe2] p-1 rounded-lg text-xs">
-                  <button
-                    onClick={() => setOverlayMode("xor")}
-                    className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                      overlayMode === "xor"
-                        ? "bg-[#fffdfa] text-[#854d0e] font-bold shadow-2xs"
-                        : "text-[#786c5e]"
-                    }`}
-                  >
-                    去同存异
-                  </button>
-                  <button
-                    onClick={() => setOverlayMode("union")}
-                    className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                      overlayMode === "union"
-                        ? "bg-[#fffdfa] text-[#854d0e] font-bold shadow-2xs"
-                        : "text-[#786c5e]"
-                    }`}
-                  >
-                    直接叠加
-                  </button>
-                  <button
-                    onClick={() => setOverlayMode("intersect")}
-                    className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                      overlayMode === "intersect"
-                        ? "bg-[#fffdfa] text-[#854d0e] font-bold shadow-2xs"
-                        : "text-[#786c5e]"
-                    }`}
-                  >
-                    求同保留
-                  </button>
+                <div className="flex items-center gap-1.5 text-xs">
+                  {[
+                    ["xor", "去同存异"],
+                    ["union", "直接叠加"],
+                    ["intersect", "求同保留"],
+                  ].map(([mode, label]) => (
+                    <DrawablyButton
+                      key={mode}
+                      variant={overlayMode === mode ? "scribble" : "outline"}
+                      onClick={() => setOverlayMode(mode as typeof overlayMode)}
+                      className="!px-3 !py-1 font-semibold"
+                    >
+                      {label}
+                    </DrawablyButton>
+                  ))}
                 </div>
               </div>
 

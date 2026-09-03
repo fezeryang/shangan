@@ -10,6 +10,7 @@ import {
   Pencil,
   PencilOff,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 type Mark =
   | { type: "dot"; counter: string; x: number; y: number; seq: number }
@@ -92,47 +93,33 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
     <div className="space-y-2">
       {/* 工具栏 */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <button
-          type="button"
+        <DrawablyButton
+          variant={enabled ? "scribble" : "outline"}
           onClick={() => setEnabled((v) => !v)}
-          className={`px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
-            enabled
-              ? "bg-[#b45309] text-white"
-              : "bg-[#f6efe2] hover:bg-[#ede3d3] text-[#4a3e31]"
-          }`}
+          className="!px-3 !py-1.5 font-semibold"
         >
-          {enabled ? (
-            <PencilOff className="w-3.5 h-3.5" />
-          ) : (
-            <Pencil className="w-3.5 h-3.5" />
-          )}
-          {enabled ? "关闭标注" : "标注题面"}
-        </button>
+          <span className="flex items-center gap-1.5">
+            {enabled ? <PencilOff className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+            {enabled ? "关闭标注" : "标注题面"}
+          </span>
+        </DrawablyButton>
         {enabled && (
           <>
-            <div className="flex items-center gap-1 bg-[#f6efe2] p-1 rounded-lg">
-              <button
-                type="button"
+            <div className="flex items-center gap-1">
+              <DrawablyButton
+                variant={tool === "dot" ? "scribble" : "outline"}
                 onClick={() => setTool("dot")}
-                className={`px-2.5 py-1 rounded-md font-medium cursor-pointer flex items-center gap-1 transition-colors ${
-                  tool === "dot"
-                    ? "bg-[#fffdfa] text-[#854d0e] font-bold shadow-2xs"
-                    : "text-[#786c5e]"
-                }`}
+                className="!px-2.5 !py-1 font-medium"
               >
-                <CircleDot className="w-3.5 h-3.5" /> 点数计数
-              </button>
-              <button
-                type="button"
+                <span className="flex items-center gap-1"><CircleDot className="w-3.5 h-3.5" /> 点数计数</span>
+              </DrawablyButton>
+              <DrawablyButton
+                variant={tool === "ellipse" ? "scribble" : "outline"}
                 onClick={() => setTool("ellipse")}
-                className={`px-2.5 py-1 rounded-md font-medium cursor-pointer flex items-center gap-1 transition-colors ${
-                  tool === "ellipse"
-                    ? "bg-[#fffdfa] text-[#854d0e] font-bold shadow-2xs"
-                    : "text-[#786c5e]"
-                }`}
+                className="!px-2.5 !py-1 font-medium"
               >
-                <Circle className="w-3.5 h-3.5" /> 圈选画笔
-              </button>
+                <span className="flex items-center gap-1"><Circle className="w-3.5 h-3.5" /> 圈选画笔</span>
+              </DrawablyButton>
             </div>
             {tool === "dot" &&
               COUNTERS.map((name) => (
@@ -154,22 +141,22 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
                   {name}·{counterCounts(name)}
                 </button>
               ))}
-            <button
-              type="button"
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setMarks((prev) => prev.slice(0, -1))}
               disabled={!marks.length}
-              className="px-2.5 py-1 rounded-md bg-[#f6efe2] hover:bg-[#ede3d3] disabled:opacity-40 text-[#4a3e31] font-medium cursor-pointer flex items-center gap-1 transition-colors"
+              className="!px-2.5 !py-1 font-medium"
             >
-              <Undo2 className="w-3.5 h-3.5" /> 撤销
-            </button>
-            <button
-              type="button"
+              <span className="flex items-center gap-1"><Undo2 className="w-3.5 h-3.5" /> 撤销</span>
+            </DrawablyButton>
+            <DrawablyButton
+              tone="danger"
               onClick={() => setMarks([])}
               disabled={!marks.length}
-              className="px-2.5 py-1 rounded-md bg-[#fef2f0] hover:bg-[#fee2e2] disabled:opacity-40 text-[#991b1b] font-medium cursor-pointer flex items-center gap-1 transition-colors"
+              className="!px-2.5 !py-1 font-medium"
             >
-              <Trash2 className="w-3.5 h-3.5" /> 清空
-            </button>
+              <span className="flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> 清空</span>
+            </DrawablyButton>
           </>
         )}
       </div>

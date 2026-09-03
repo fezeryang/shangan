@@ -18,6 +18,7 @@ import { renderVariant } from "../../figureEngine/generators";
 import { sanitizeSvg } from "../../../svgSanitize";
 import { RuleStepper } from "./RuleStepper";
 import { RealQuestionCard } from "../PatternLab";
+import { DrawablyButton } from "drawably/react";
 
 /** 引导覆盖的考点 = 有步进序列的高频 4 类 */
 export const GUIDE_SUBCATEGORIES = Object.keys(DEMO_SPECS);
@@ -114,13 +115,13 @@ export const GuidedMode: React.FC<GuidedModeProps> = ({
             </p>
           </div>
         </div>
-        <button
-          type="button"
+        <DrawablyButton
+          tone="neutral"
           onClick={onExit}
-          className="px-3 py-1.5 rounded-lg bg-[#f6efe2] hover:bg-[#ede3d3] text-[#4a3e31] text-xs font-semibold cursor-pointer transition-colors"
+          className="!px-3 !py-1.5 text-xs font-semibold"
         >
           退出引导
-        </button>
+        </DrawablyButton>
       </div>
 
       {/* 考点选择 */}
@@ -240,20 +241,20 @@ export const GuidedMode: React.FC<GuidedModeProps> = ({
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setSub(null)}
-              className="px-3 py-1.5 rounded-lg bg-[#f6efe2] hover:bg-[#ede3d3] text-[#4a3e31] text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+              className="!px-3 !py-1.5 text-xs font-semibold"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> 换考点
-            </button>
-            <button
-              type="button"
+              <span className="flex items-center gap-1"><ArrowLeft className="w-3.5 h-3.5" /> 换考点</span>
+            </DrawablyButton>
+            <DrawablyButton
+              variant="solid"
               onClick={() => setStage("follow")}
-              className="px-4 py-1.5 rounded-lg bg-[#b45309] hover:bg-[#92400e] text-white text-xs font-semibold cursor-pointer transition-colors"
+              className="!px-4 !py-1.5 text-xs font-semibold"
             >
               下一步：分步跟练 →
-            </button>
+            </DrawablyButton>
           </div>
         </div>
       )}
@@ -272,22 +273,22 @@ export const GuidedMode: React.FC<GuidedModeProps> = ({
             onStepChange={(i) => i >= steps.length - 1 && setFollowDone(true)}
           />
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setStage("preview")}
-              className="px-3 py-1.5 rounded-lg bg-[#f6efe2] hover:bg-[#ede3d3] text-[#4a3e31] text-xs font-semibold cursor-pointer transition-colors"
+              className="!px-3 !py-1.5 text-xs font-semibold"
             >
               回看预习卡
-            </button>
-            <button
-              type="button"
+            </DrawablyButton>
+            <DrawablyButton
+              variant="solid"
               onClick={() => setStage("solo")}
               disabled={!followDone}
               title={followDone ? undefined : "请先逐帧走到末步"}
-              className="px-4 py-1.5 rounded-lg bg-[#b45309] hover:bg-[#92400e] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold cursor-pointer transition-colors"
+              className="!px-4 !py-1.5 text-xs font-semibold"
             >
               {followDone ? "下一步：独立做题 →" : "走完跟练后解锁"}
-            </button>
+            </DrawablyButton>
           </div>
         </div>
       )}
@@ -323,13 +324,13 @@ export const GuidedMode: React.FC<GuidedModeProps> = ({
               支架已撤除，回到普通模式继续实战；后续可在实验室随时回看演示器。
             </p>
           </div>
-          <button
-            type="button"
+          <DrawablyButton
+            variant="solid"
             onClick={onExit}
-            className="px-4 py-2 rounded-lg bg-[#b45309] hover:bg-[#92400e] text-white text-xs font-semibold cursor-pointer transition-colors"
+            className="!px-4 !py-2 text-xs font-semibold"
           >
             返回普通模式
-          </button>
+          </DrawablyButton>
         </div>
       )}
     </div>

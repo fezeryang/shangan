@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { StepState } from "../../figureEngine/sequence";
 import { sanitizeSvg } from "../../../svgSanitize";
+import { DrawablyButton } from "drawably/react";
 
 const AUTOPLAY_MS = 1600; // 每步停留 ≥1.2s（E2/E3）
 const GHOST_LAYERS = 2; // 残影最多叠加前 2 步
@@ -145,18 +146,18 @@ export const RuleStepper: React.FC<RuleStepperProps> = ({
         <span aria-live="polite">{step.caption}</span>
       </div>
 
-      {/* 控制条：上一步/播放/下一步/重置，全部原生 button */}
+      {/* 控制条：上一步/播放/下一步/重置 */}
       <div className="flex items-center justify-center gap-2 flex-wrap">
-        <button
-          type="button"
+        <DrawablyButton
+          tone="neutral"
           onClick={() => goTo(index - 1)}
           disabled={index === 0}
-          className="px-3 py-1.5 rounded-lg bg-[#f6efe2] hover:bg-[#ede3d3] disabled:opacity-40 text-xs font-semibold text-[#4a3e31] flex items-center gap-1 cursor-pointer transition-colors"
+          className="!px-3 !py-1.5 text-xs font-semibold"
         >
-          <ChevronLeft className="w-3.5 h-3.5" /> 上一步
-        </button>
-        <button
-          type="button"
+          <span className="flex items-center gap-1"><ChevronLeft className="w-3.5 h-3.5" /> 上一步</span>
+        </DrawablyButton>
+        <DrawablyButton
+          variant="solid"
           onClick={() =>
             playing
               ? setPlaying(false)
@@ -165,36 +166,30 @@ export const RuleStepper: React.FC<RuleStepperProps> = ({
                 : setPlaying(true)
           }
           disabled={prefersReducedMotion() && !playing}
-          title={
-            prefersReducedMotion()
-              ? "已跟随系统减少动态效果"
-              : "自动播放（播完停在末帧）"
-          }
-          className="px-3 py-1.5 rounded-lg bg-[#b45309] hover:bg-[#92400e] text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+          title={prefersReducedMotion() ? "已跟随系统减少动态效果" : "自动播放（播完停在末帧）"}
+          className="!px-3 !py-1.5 text-xs font-semibold"
         >
-          {playing ? (
-            <Pause className="w-3.5 h-3.5" />
-          ) : (
-            <Play className="w-3.5 h-3.5" />
-          )}
-          {playing ? "暂停" : last ? "重播" : "自动播放"}
-        </button>
-        <button
-          type="button"
+          <span className="flex items-center gap-1">
+            {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {playing ? "暂停" : last ? "重播" : "自动播放"}
+          </span>
+        </DrawablyButton>
+        <DrawablyButton
+          tone="neutral"
           onClick={() => goTo(index + 1)}
           disabled={last}
-          className="px-3 py-1.5 rounded-lg bg-[#f6efe2] hover:bg-[#ede3d3] disabled:opacity-40 text-xs font-semibold text-[#4a3e31] flex items-center gap-1 cursor-pointer transition-colors"
+          className="!px-3 !py-1.5 text-xs font-semibold"
         >
-          下一步 <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
+          <span className="flex items-center gap-1">下一步 <ChevronRight className="w-3.5 h-3.5" /></span>
+        </DrawablyButton>
+        <DrawablyButton
+          tone="neutral"
           onClick={() => goTo(0)}
-          className="px-2.5 py-1.5 rounded-lg text-[#8c7e6d] hover:text-[#26201a] hover:bg-[#f6efe2] cursor-pointer transition-colors"
+          className="!px-2.5 !py-1.5"
           title="重置到第一步"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-        </button>
+        </DrawablyButton>
       </div>
     </div>
   );
