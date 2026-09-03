@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Question, StudyStats, UserAnswerRecord } from '../types';
-import { QuestionKnowledgeModal } from './QuestionKnowledgeModal';
+import React, { useState, useEffect, useRef } from "react";
+import { Question, StudyStats, UserAnswerRecord } from "../types";
+import { QuestionKnowledgeModal } from "./QuestionKnowledgeModal";
 import {
   Sparkles,
   Layers,
   Repeat,
-  CheckCircle2,
-  XCircle,
   Edit3,
   Bookmark,
   ChevronDown,
@@ -16,14 +14,15 @@ import {
   CheckCheck,
   Network,
   Clock,
-} from 'lucide-react';
+} from "lucide-react";
+import { DrawablyButton, DrawablyTextarea } from "drawably/react";
 
 interface QuestionCardProps {
   question: Question;
   selectedOption?: string;
   onSelectOption: (key: string, timeSpentSec?: number) => void;
   isAnswered: boolean;
-  onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat') => void;
+  onOpenAI: (tab: "explain" | "graphic" | "variant" | "chat") => void;
   onToggleFavorite?: (id: string) => void;
   isFavorite?: boolean;
   userNote?: string;
@@ -46,7 +45,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onOpenAI,
   onToggleFavorite,
   isFavorite = false,
-  userNote = '',
+  userNote = "",
   onSaveNote,
   onResetAnswer,
   showExplanationDirectly = false,
@@ -58,12 +57,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onNavigateToSubCategory,
 }) => {
   // Draft option selected by user before final submission
-  const [draftOption, setDraftOption] = useState<string | null>(selectedOption || null);
-  const [hasSubmitted, setHasSubmitted] = useState<boolean>(isAnswered || showExplanationDirectly);
-  const [showExplanation, setShowExplanation] = useState<boolean>(showExplanationDirectly || isAnswered);
+  const [draftOption, setDraftOption] = useState<string | null>(
+    selectedOption || null,
+  );
+  const [hasSubmitted, setHasSubmitted] = useState<boolean>(
+    isAnswered || showExplanationDirectly,
+  );
+  const [showExplanation, setShowExplanation] = useState<boolean>(
+    showExplanationDirectly || isAnswered,
+  );
   const [isEditingNote, setIsEditingNote] = useState<boolean>(false);
   const [noteText, setNoteText] = useState<string>(userNote);
-  const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState<boolean>(false);
+  const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] =
+    useState<boolean>(false);
 
   // 真实单题用时：从题目首次展示到提交作答
   const startTimeRef = useRef<number>(Date.now());
@@ -91,7 +97,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
     setDraftOption(key);
     if (instantSubmitMode) {
-      const timeSpentSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+      const timeSpentSec = Math.max(
+        1,
+        Math.round((Date.now() - startTimeRef.current) / 1000),
+      );
       setSubmittedTimeSec(timeSpentSec);
       onSelectOption(key, timeSpentSec);
       setHasSubmitted(true);
@@ -102,7 +111,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   // Explicit confirmation to submit and grade
   const handleConfirmSubmit = () => {
     if (!draftOption) return;
-    const timeSpentSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+    const timeSpentSec = Math.max(
+      1,
+      Math.round((Date.now() - startTimeRef.current) / 1000),
+    );
     setSubmittedTimeSec(timeSpentSec);
     onSelectOption(draftOption, timeSpentSec);
     setHasSubmitted(true);
@@ -124,27 +136,33 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   // Keyboard shortcut listener for A, B, C, D and Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
       const key = e.key.toUpperCase();
-      if (['A', 'B', 'C', 'D'].includes(key) && !hasSubmitted) {
+      if (["A", "B", "C", "D"].includes(key) && !hasSubmitted) {
         handleOptionClick(key);
-      } else if (e.key === 'Enter' && draftOption && !hasSubmitted) {
+      } else if (e.key === "Enter" && draftOption && !hasSubmitted) {
         handleConfirmSubmit();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [draftOption, hasSubmitted, instantSubmitMode]);
 
   const activeOption = draftOption || selectedOption;
   const isCorrect = activeOption === question.correctAnswer;
-  const recordTimeSec = answerRecords?.find((r) => r.questionId === question.id)?.timeSpentSec;
+  const recordTimeSec = answerRecords?.find(
+    (r) => r.questionId === question.id,
+  )?.timeSpentSec;
   const displayTimeSec = recordTimeSec ?? submittedTimeSec;
 
   const difficultyStars =
-    question.difficulty === 'hard' ? 5 : question.difficulty === 'medium' ? 4 : 3;
+    question.difficulty === "hard"
+      ? 5
+      : question.difficulty === "medium"
+        ? 4
+        : 3;
 
   const handleSaveNote = () => {
     if (onSaveNote) {
@@ -165,11 +183,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           )}
           <span
             className={`text-xs px-2.5 py-0.5 rounded-md font-semibold border ${
-              question.category === 'verbal'
-                ? 'bg-[#fcf5e5] text-[#854d0e] border-[#ebdcb9]'
-                : question.category === 'data'
-                ? 'bg-[#fff4ea] text-[#9a3412] border-[#f4d7b8]'
-                : 'bg-[#f5ede3] text-[#6b3b1f] border-[#decfbe]'
+              question.category === "verbal"
+                ? "bg-[#fcf5e5] text-[#854d0e] border-[#ebdcb9]"
+                : question.category === "data"
+                  ? "bg-[#fff4ea] text-[#9a3412] border-[#f4d7b8]"
+                  : "bg-[#f5ede3] text-[#6b3b1f] border-[#decfbe]"
             }`}
           >
             {question.categoryName}
@@ -182,12 +200,17 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         {/* Right Header Actions */}
         <div className="flex items-center gap-2">
           {/* Difficulty Rating */}
-          <div className="flex items-center gap-0.5 text-[#b45309]" title={`难度 ${difficultyStars} 星`}>
+          <div
+            className="flex items-center gap-0.5 text-[#b45309]"
+            title={`难度 ${difficultyStars} 星`}
+          >
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
                 key={i}
                 className={`w-3 h-3 ${
-                  i < difficultyStars ? 'fill-[#b45309] text-[#b45309]' : 'text-[#ded4c1]'
+                  i < difficultyStars
+                    ? "fill-[#b45309] text-[#b45309]"
+                    : "text-[#ded4c1]"
                 }`}
               />
             ))}
@@ -209,12 +232,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               onClick={() => onToggleFavorite(question.id)}
               className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                 isFavorite
-                  ? 'bg-[#fef8ea] border-[#e8ce8a] text-[#b45309]'
-                  : 'bg-[#faf6ee] border-[#ded4bf] text-[#8c7e6d] hover:text-[#26201a] hover:bg-[#f3ebd9]'
+                  ? "bg-[#fef8ea] border-[#e8ce8a] text-[#b45309]"
+                  : "bg-[#faf6ee] border-[#ded4bf] text-[#8c7e6d] hover:text-[#26201a] hover:bg-[#f3ebd9]"
               }`}
-              title={isFavorite ? '已收藏此题' : '收藏此题'}
+              title={isFavorite ? "已收藏此题" : "收藏此题"}
             >
-              <Bookmark className={`w-3.5 h-3.5 ${isFavorite ? 'fill-[#b45309]' : ''}`} />
+              <Bookmark
+                className={`w-3.5 h-3.5 ${isFavorite ? "fill-[#b45309]" : ""}`}
+              />
             </button>
           )}
 
@@ -223,8 +248,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             onClick={() => setIsEditingNote(!isEditingNote)}
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
               userNote
-                ? 'bg-[#fef6ea] border-[#e8ce8a] text-[#b45309]'
-                : 'bg-[#faf6ee] border-[#ded4bf] text-[#8c7e6d] hover:text-[#26201a] hover:bg-[#f3ebd9]'
+                ? "bg-[#fef6ea] border-[#e8ce8a] text-[#b45309]"
+                : "bg-[#faf6ee] border-[#ded4bf] text-[#8c7e6d] hover:text-[#26201a] hover:bg-[#f3ebd9]"
             }`}
             title="添加题目笔记"
           >
@@ -236,13 +261,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       {/* Note Editor Bar (if expanded) */}
       {isEditingNote && (
         <div className="bg-[#fcf8ef] p-3.5 border-b border-[#e3d9c4] animate-in fade-in duration-150">
-          <div className="text-xs font-semibold text-[#854d0e] mb-1.5">📝 个人专属做题笔记与复盘记录：</div>
-          <textarea
+          <div className="text-xs font-semibold text-[#854d0e] mb-1.5">
+            📝 个人专属做题笔记与复盘记录：
+          </div>
+          <DrawablyTextarea
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             rows={2}
             placeholder="记录你的错因反思、做题直觉或秒杀口诀..."
-            className="w-full text-xs p-2.5 bg-[#fffdfa] border border-[#dccfb7] rounded-lg focus:outline-[#b45309] text-[#26201a]"
+            className="w-full text-xs !p-2.5 bg-[var(--card)] text-[color:var(--ink)]"
           />
           <div className="mt-2 flex justify-end gap-2">
             <button
@@ -251,12 +278,13 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             >
               取消
             </button>
-            <button
+            <DrawablyButton
+              variant="solid"
               onClick={handleSaveNote}
-              className="px-3 py-1 bg-[#b45309] hover:bg-[#9a3412] text-white text-xs font-medium rounded-md cursor-pointer shadow-xs"
+              className="!px-3 !py-1 text-xs font-bold"
             >
               保存笔记
-            </button>
+            </DrawablyButton>
           </div>
         </div>
       )}
@@ -284,7 +312,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 />
               </div>
             ))}
-            {question.category === 'graphic' && (
+            {question.category === "graphic" && (
               <p className="text-xs text-[#8c7e6d]">
                 💡 图形题选项从上往下数，依次对应 A、B、C、D、E。
               </p>
@@ -292,69 +320,49 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
         )}
 
-        {/* Options */}
-        <div className="space-y-2.5 pt-2">
-            {question.options.map((opt) => {
-              const isSelected = activeOption === opt.key;
-              const isCorrectOpt = question.correctAnswer === opt.key;
+        {/* Options：手账语义——未答=墨线描边；选中=涂鸦填充；批改后正确=绿墨、错选=红墨、其余淡出 */}
+        <div className="space-y-3 pt-2">
+          {question.options.map((opt) => {
+            const isSelected = activeOption === opt.key;
+            const isCorrectOpt = question.correctAnswer === opt.key;
 
-              let btnStyle =
-                'bg-[#faf7f0] border-[#ded4bf] hover:border-[#b45309] hover:bg-[#f6efe2] text-[#26201a]';
+            const variant =
+              !hasSubmitted && isSelected ? "scribble" : "outline";
+            const state: "idle" | "success" | "error" =
+              hasSubmitted && isCorrectOpt
+                ? "success"
+                : hasSubmitted && isSelected && !isCorrectOpt
+                  ? "error"
+                  : "idle";
+            const dimmed = hasSubmitted && !isCorrectOpt && !isSelected;
 
-              if (hasSubmitted) {
-                if (isCorrectOpt) {
-                  btnStyle = 'bg-[#edf6ee] border-[#4e9658] text-[#14532d] ring-1 ring-[#4e9658] font-semibold';
-                } else if (isSelected && !isCorrectOpt) {
-                  btnStyle = 'bg-[#fef2f0] border-[#c2410c] text-[#991b1b] ring-1 ring-[#c2410c]';
-                } else {
-                  btnStyle = 'bg-[#fcfaf5] border-[#e7dece] text-[#968877] opacity-60';
-                }
-              } else if (isSelected) {
-                btnStyle = 'bg-[#fef7eb] border-[#b45309] text-[#26201a] ring-2 ring-[#b45309]/40 font-semibold shadow-xs';
-              }
+            return (
+              <DrawablyButton
+                key={opt.key}
+                variant={variant}
+                state={state}
+                onClick={() => handleOptionClick(opt.key)}
+                disabled={hasSubmitted}
+                className={`w-full !justify-start text-left !px-3.5 !py-3 flex items-center justify-between gap-3 text-xs sm:text-sm ${
+                  dimmed ? "opacity-50" : ""
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span className="font-display text-base font-bold w-5 shrink-0 text-center">
+                    {opt.key}
+                  </span>
+                  <span className="leading-relaxed">{opt.content}</span>
+                </span>
 
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => handleOptionClick(opt.key)}
-                  disabled={hasSubmitted}
-                  className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 text-xs sm:text-sm cursor-pointer shadow-2xs ${btnStyle}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                        hasSubmitted && isCorrectOpt
-                          ? 'bg-[#24683a] text-white'
-                          : hasSubmitted && isSelected && !isCorrectOpt
-                          ? 'bg-[#c2410c] text-white'
-                          : isSelected
-                          ? 'bg-[#b45309] text-white'
-                          : 'bg-[#ede5d4] text-[#4a3e31]'
-                      }`}
-                    >
-                      {opt.key}
+                {hasSubmitted &&
+                  (isCorrectOpt || (isSelected && !isCorrectOpt)) && (
+                    <span className="shrink-0 text-[10px] font-bold whitespace-nowrap">
+                      {isCorrectOpt ? "✓ 正确答案" : "✕ 你的选择"}
                     </span>
-                    <span className="leading-relaxed">{opt.content}</span>
-                  </div>
-
-                  {hasSubmitted && (
-                    <div className="shrink-0">
-                      {isCorrectOpt && (
-                        <span className="flex items-center gap-1 text-[#15803d] font-bold text-xs bg-[#dcfce7] px-2 py-0.5 rounded-md border border-[#86efac]">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> 正确
-                        </span>
-                      )}
-                      {isSelected && !isCorrectOpt && (
-                        <span className="flex items-center gap-1 text-[#b91c1c] font-bold text-xs bg-[#fee2e2] px-2 py-0.5 rounded-md border border-[#fca5a5]">
-                          <XCircle className="w-3.5 h-3.5" /> 你的选择
-                        </span>
-                      )}
-                    </div>
                   )}
-                </button>
-              );
-            })}
+              </DrawablyButton>
+            );
+          })}
         </div>
 
         {/* Action Bar: Submit & Check / Retry */}
@@ -362,88 +370,116 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           <div className="pt-3 border-t border-[#e8dfcb] flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-[#786c5e]">
               {draftOption ? (
-                <span>已选择 <strong>{draftOption}</strong> 选项，确认无误后点击右侧提交</span>
+                <span>
+                  已选择 <strong>{draftOption}</strong>{" "}
+                  选项，确认无误后点击右侧提交
+                </span>
               ) : (
                 <span>请先选择你的答案（支持键盘按键 A / B / C / D）</span>
               )}
             </span>
 
-            <button
+            <DrawablyButton
+              variant="solid"
               onClick={handleConfirmSubmit}
               disabled={!draftOption}
-              className="px-5 py-2 bg-[#b45309] hover:bg-[#9a3412] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+              className="!px-5 !py-2 text-xs sm:text-sm font-bold"
             >
-              <CheckCheck className="w-4 h-4" />
-              <span>确认作答 · 核对答案</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <CheckCheck className="w-4 h-4" />
+                <span>确认作答 · 核对答案</span>
+              </span>
+            </DrawablyButton>
           </div>
         ) : (
           <div className="pt-3 border-t border-[#e8dfcb] flex flex-wrap items-center justify-between gap-2">
             {/* AI Helper Triggers */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => onOpenAI('explain')}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#fef7ea] hover:bg-[#faeed6] text-[#854d0e] border border-[#e8d5b0] rounded-lg text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+              <DrawablyButton
+                onClick={() => onOpenAI("explain")}
+                className="!px-3 !py-1.5 text-xs font-semibold"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#b45309]" />
-                <span>AI 思维链解析</span>
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>AI 思维链解析</span>
+                </span>
+              </DrawablyButton>
 
-              {question.category === 'graphic' && (
-                <button
-                  onClick={() => onOpenAI('graphic')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f6efe6] hover:bg-[#ede3d5] text-[#6b3b1f] border border-[#ded0be] rounded-lg text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+              {question.category === "graphic" && (
+                <DrawablyButton
+                  onClick={() => onOpenAI("graphic")}
+                  className="!px-3 !py-1.5 text-xs font-semibold"
                 >
-                  <Layers className="w-3.5 h-3.5 text-[#6b3b1f]" />
-                  <span>图推规律透析</span>
-                </button>
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>图推规律透析</span>
+                  </span>
+                </DrawablyButton>
               )}
 
-              <button
-                onClick={() => onOpenAI('variant')}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f5efe2] hover:bg-[#ece2d0] text-[#5c4e3f] border border-[#ded2bd] rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer"
+              <DrawablyButton
+                onClick={() => onOpenAI("variant")}
+                className="!px-3 !py-1.5 text-xs font-medium"
               >
-                <Repeat className="w-3.5 h-3.5 text-[#786c5e]" />
-                <span>举一反三变式</span>
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span>举一反三变式</span>
+                </span>
+              </DrawablyButton>
 
-              {/* Knowledge Graph Button */}
-              <button
+              <DrawablyButton
                 onClick={() => setIsKnowledgeModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#fef8eb] hover:bg-[#faeed6] text-[#854d0e] border border-[#e8ce8a] rounded-lg text-xs font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                className="!px-3 !py-1.5 text-xs font-semibold"
               >
-                <Network className="w-3.5 h-3.5 text-[#b45309]" />
-                <span>关联考点图谱</span>
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <Network className="w-3.5 h-3.5" />
+                  <span>关联考点图谱</span>
+                </span>
+              </DrawablyButton>
 
-              <button
+              <DrawablyButton
+                tone="neutral"
                 onClick={handleResetAttempt}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-[#faf5ec] hover:bg-[#f0e7d6] text-[#786c5e] hover:text-[#26201a] border border-[#ded2bd] rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                className="!px-2.5 !py-1.5 text-xs font-medium"
                 title="清除已答状态，重新独立思考作答"
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>重新作答</span>
-              </button>
+                <span className="flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3" />
+                  <span>重新作答</span>
+                </span>
+              </DrawablyButton>
 
               {displayTimeSec != null && (
                 <span
-                  className="inline-flex items-center gap-1 text-[11px] text-[#786c5e] bg-[#f8f3e8] border border-[#ded3bd] px-2 py-1 rounded-lg"
+                  className="inline-flex items-center gap-1 text-[11px] text-[color:var(--ink-soft)] bg-[var(--card)] border border-dashed border-[#d8c9a8] px-2 py-1"
                   title="本题实际作答用时"
                 >
-                  <Clock className="w-3 h-3 text-[#6b3b1f]" />
-                  <span>本题用时 {displayTimeSec}s</span>
+                  <Clock className="w-3 h-3" />
+                  <span>
+                    本题用时{" "}
+                    <span className="font-display font-bold text-[color:var(--ink)]">
+                      {displayTimeSec}s
+                    </span>
+                  </span>
                 </span>
               )}
             </div>
 
             {/* Toggle Official Solution */}
-            <button
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setShowExplanation(!showExplanation)}
-              className="flex items-center gap-1 text-xs font-semibold text-[#6e6153] hover:text-[#26201a] cursor-pointer bg-[#f7f2e5] px-3 py-1.5 rounded-lg border border-[#e3d8c2]"
+              className="!px-3 !py-1.5 text-xs font-semibold"
             >
-              <span>{showExplanation ? '收起标准题解' : '查看标准题解'}</span>
-              {showExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+              <span className="flex items-center gap-1">
+                <span>{showExplanation ? "收起标准题解" : "查看标准题解"}</span>
+                {showExplanation ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </span>
+            </DrawablyButton>
           </div>
         )}
 
@@ -452,11 +488,18 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           <div className="mt-4 p-4 sm:p-5 bg-[#f7f2e5] rounded-xl border border-[#dfd5bf] space-y-3 text-xs sm:text-sm animate-in fade-in duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-[#dfd5bf]">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-[#26201a]">标准答案：</span>
-                <span className="text-base font-extrabold text-[#1b5e20]">{question.correctAnswer}</span>
+                <span className="font-bold text-[color:var(--ink)]">
+                  标准答案：
+                </span>
+                <span className="font-display text-2xl font-bold text-[color:var(--ink-accent-strong)]">
+                  {question.correctAnswer}
+                </span>
                 {activeOption && (
-                  <span className={`text-xs ml-2 font-medium ${isCorrect ? 'text-[#1b5e20]' : 'text-[#b91c1c]'}`}>
-                    ({isCorrect ? '回答正确 ✓' : `你的答案是 ${activeOption} ✕`})
+                  <span
+                    className={`text-xs ml-2 font-medium ${isCorrect ? "text-[#1b5e20]" : "text-[#b91c1c]"}`}
+                  >
+                    ({isCorrect ? "回答正确 ✓" : `你的答案是 ${activeOption} ✕`}
+                    )
                   </span>
                 )}
               </div>
@@ -464,8 +507,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             {/* Step-by-step logic breakdown */}
             <div className="space-y-1.5">
-              <div className="font-semibold text-[#26201a]">【解题逻辑剖析】：</div>
-              <p className="text-[#4a3e31] leading-relaxed whitespace-pre-wrap">{question.explanation}</p>
+              <div className="font-semibold text-[#26201a]">
+                【解题逻辑剖析】：
+              </div>
+              <p className="text-[#4a3e31] leading-relaxed whitespace-pre-wrap">
+                {question.explanation}
+              </p>
             </div>
           </div>
         )}

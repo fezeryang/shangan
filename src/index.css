@@ -1,18 +1,79 @@
 @import "tailwindcss";
 
-/* 品牌字体工具类：Tailwind v4 @theme 生成 font-display / font-mono */
+/* ============ 上岸手账 · 纸墨地基 ============ */
+
 @theme {
-  --font-display: 'Plus Jakarta Sans', 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Drawably Pen", "Plus Jakarta Sans", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  /* 纸与墨 */
+  --paper: #f8f3e7;
+  --card: #fdfaf2;
+  --ink: #33291d;
+  --ink-soft: #6f5f4b;
+  --ink-accent: #9a4a12;      /* 琥珀墨：全局手绘笔迹 */
+  --ink-accent-strong: #7c3a0c;
+  --marker: #f6d76b;          /* 标记黄 */
+  --line: #e2d5ba;
+
+  /* drawably 全局墨色（一处设置，全站笔迹生效） */
+  --drawably-stroke: #9a4a12;
+  --drawably-fill: #f1e0bd;
+  --drawably-paper: #fdfaf2;
+  --drawably-error: #bf4236;
+  --drawably-success: #3c7a37;
 }
 
 body {
-  background-color: #f5f0e6;
-  background-image: radial-gradient(#d8ccb4 0.65px, transparent 0.65px), radial-gradient(#e5dbc7 0.65px, #f5f0e6 0.65px);
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(#ddd0b2 0.6px, transparent 0.6px),
+    radial-gradient(#e9dec4 0.6px, #f8f3e7 0.6px);
   background-size: 26px 26px;
   background-position: 0 0, 13px 13px;
-  color: #26201a;
-  font-family: 'Noto Sans SC', 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--ink);
+  font-family: "Noto Sans SC", "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+/* 纸面噪点（drawably 示例页同款 feTurbulence 颗粒） */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* drawably 控件融入中文字体栈 */
+.drawably-host,
+.drawably-button,
+.drawably-input,
+.drawably-textarea,
+.drawably-select {
+  font-family: inherit;
+}
+
+/* solid 主按钮：墨色加深一档，保证纸色文字对比度 ≥ 6:1（正文级） */
+.drawably-button--solid {
+  --drawably-ink: #7c3a0c;
+}
+
+/* 浏览器表面统一墨色 */
+::selection {
+  background: var(--marker);
+  color: var(--ink);
+}
+input,
+textarea,
+select {
+  caret-color: var(--ink-accent);
+}
+:focus-visible {
+  outline: 2px solid var(--ink-accent);
+  outline-offset: 2px;
 }
 
 /* 隐藏横向滚动条（顶部导航 / 标签栏） */
@@ -23,21 +84,24 @@ body {
   display: none;
 }
 
-/* Warm Sepia Scrollbar */
+/* 纸面滚动条 */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f0eae0;
+  background: var(--paper);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #cfc1aa;
-  border-radius: 9999px;
+  background: #cdbb97;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-accent);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #b5a48b;
+/* 手账纸卡（未接入 drawablyCard 的过渡容器） */
+.paper-card {
+  background: var(--card);
+  border: 1px solid var(--line);
 }
