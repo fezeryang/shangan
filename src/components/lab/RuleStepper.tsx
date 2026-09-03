@@ -154,7 +154,9 @@ export const RuleStepper: React.FC<RuleStepperProps> = ({
           disabled={index === 0}
           className="!px-3 !py-1.5 text-xs font-semibold"
         >
-          <span className="flex items-center gap-1"><ChevronLeft className="w-3.5 h-3.5" /> 上一步</span>
+          <span className="flex items-center gap-1">
+            <ChevronLeft className="w-3.5 h-3.5" /> 上一步
+          </span>
         </DrawablyButton>
         <DrawablyButton
           variant="solid"
@@ -166,11 +168,19 @@ export const RuleStepper: React.FC<RuleStepperProps> = ({
                 : setPlaying(true)
           }
           disabled={prefersReducedMotion() && !playing}
-          title={prefersReducedMotion() ? "已跟随系统减少动态效果" : "自动播放（播完停在末帧）"}
+          title={
+            prefersReducedMotion()
+              ? "已跟随系统减少动态效果"
+              : "自动播放（播完停在末帧）"
+          }
           className="!px-3 !py-1.5 text-xs font-semibold"
         >
           <span className="flex items-center gap-1">
-            {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {playing ? (
+              <Pause className="w-3.5 h-3.5" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
             {playing ? "暂停" : last ? "重播" : "自动播放"}
           </span>
         </DrawablyButton>
@@ -180,7 +190,9 @@ export const RuleStepper: React.FC<RuleStepperProps> = ({
           disabled={last}
           className="!px-3 !py-1.5 text-xs font-semibold"
         >
-          <span className="flex items-center gap-1">下一步 <ChevronRight className="w-3.5 h-3.5" /></span>
+          <span className="flex items-center gap-1">
+            下一步 <ChevronRight className="w-3.5 h-3.5" />
+          </span>
         </DrawablyButton>
         <DrawablyButton
           tone="neutral"

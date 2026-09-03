@@ -532,8 +532,7 @@ export const PatternLab: React.FC<PatternLabProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-[#786c5e] leading-relaxed">
             每类规律直接使用题库中的{" "}
-            <strong className="text-[#26201a]">真实图形真题</strong>{" "}
-            实战演练；
+            <strong className="text-[#26201a]">真实图形真题</strong> 实战演练；
             演示器把规律「变化过程」一步步放给你看，还可在真题图上点数计数、圈选标记，答完先看规律重演再读解析。
           </p>
         </div>
@@ -544,7 +543,9 @@ export const PatternLab: React.FC<PatternLabProps> = ({
         >
           <span className="flex items-center gap-2">
             <GraduationCap className="w-4 h-4" />
-            <span>{guided ? "退出新手引导" : "新手引导（预习 → 跟练 → 独立做题）"}</span>
+            <span>
+              {guided ? "退出新手引导" : "新手引导（预习 → 跟练 → 独立做题）"}
+            </span>
           </span>
         </DrawablyButton>
       </div>

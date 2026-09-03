@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Bell,
   Clock,
@@ -12,8 +12,8 @@ import {
   Heart,
   Timer,
   Smile,
-} from 'lucide-react';
-import { DrawablyButton, DrawablyInput } from 'drawably/react';
+} from "lucide-react";
+import { DrawablyButton, DrawablyInput } from "drawably/react";
 
 export interface StudyReminderConfig {
   enabled: boolean;
@@ -33,17 +33,23 @@ export const playGentleChime = () => {
     const ctx = new AudioCtx();
 
     // Gentle chord frequencies (E4, G#4, B4, E5) - warm and peaceful
-    const notes = [329.63, 415.30, 493.88, 659.25];
+    const notes = [329.63, 415.3, 493.88, 659.25];
     notes.forEach((freq, index) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.12);
 
       gain.gain.setValueAtTime(0, ctx.currentTime + index * 0.12);
-      gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + index * 0.12 + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + index * 0.12 + 1.8);
+      gain.gain.linearRampToValueAtTime(
+        0.12,
+        ctx.currentTime + index * 0.12 + 0.05,
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        ctx.currentTime + index * 0.12 + 1.8,
+      );
 
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -57,10 +63,10 @@ export const playGentleChime = () => {
 };
 
 const DEFAULT_MESSAGES = [
-  '🌱 专注时光圆满达成，起来喝口温水，眺望远方放松一下眼睛吧！',
-  '☕ 学习辛苦啦！让大脑适度休息 5 分钟，思维会更加敏锐清醒。',
-  '🧘 做一次深呼吸，转动一下肩颈，你今天的努力都在悄悄积累力量。',
-  '✨ 劳逸结合才是高分秘诀，准备好开启下一轮题型复盘了吗？',
+  "🌱 专注时光圆满达成，起来喝口温水，眺望远方放松一下眼睛吧！",
+  "☕ 学习辛苦啦！让大脑适度休息 5 分钟，思维会更加敏锐清醒。",
+  "🧘 做一次深呼吸，转动一下肩颈，你今天的努力都在悄悄积累力量。",
+  "✨ 劳逸结合才是高分秘诀，准备好开启下一轮题型复盘了吗？",
 ];
 
 interface StudyReminderProps {
@@ -77,20 +83,24 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
   activeConfig,
   onUpdateConfig,
 }) => {
-  const [selectedMinutes, setSelectedMinutes] = useState<number>(activeConfig?.durationMinutes || 25);
-  const [customMinutes, setCustomMinutes] = useState<string>('');
-  const [customMessage, setCustomMessage] = useState<string>(
-    activeConfig?.message || DEFAULT_MESSAGES[0]
+  const [selectedMinutes, setSelectedMinutes] = useState<number>(
+    activeConfig?.durationMinutes || 25,
   );
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(activeConfig?.soundEnabled ?? true);
+  const [customMinutes, setCustomMinutes] = useState<string>("");
+  const [customMessage, setCustomMessage] = useState<string>(
+    activeConfig?.message || DEFAULT_MESSAGES[0],
+  );
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(
+    activeConfig?.soundEnabled ?? true,
+  );
 
   if (!isOpen) return null;
 
   const PRESETS = [
-    { mins: 15, label: '15分钟', desc: '快速刷题' },
-    { mins: 25, label: '25分钟', desc: '番茄钟专注' },
-    { mins: 45, label: '45分钟', desc: '全真模考' },
-    { mins: 60, label: '60分钟', desc: '深度复盘' },
+    { mins: 15, label: "15分钟", desc: "快速刷题" },
+    { mins: 25, label: "25分钟", desc: "番茄钟专注" },
+    { mins: 45, label: "45分钟", desc: "全真模考" },
+    { mins: 60, label: "60分钟", desc: "深度复盘" },
   ];
 
   const handleStartTimer = (mins: number) => {
@@ -157,13 +167,17 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
               <div>
                 <div className="text-xs font-bold text-[#26201a] flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#b45309]" />
-                  <span>当前正在进行中：{activeConfig.durationMinutes} 分钟专注</span>
+                  <span>
+                    当前正在进行中：{activeConfig.durationMinutes} 分钟专注
+                  </span>
                 </div>
                 <div className="text-[11px] text-[#786c5e] mt-0.5">
                   到期时间：
-                  {new Date(activeConfig.targetTimestamp || Date.now()).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {new Date(
+                    activeConfig.targetTimestamp || Date.now(),
+                  ).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </div>
               </div>
@@ -190,15 +204,19 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
               return (
                 <DrawablyButton
                   key={p.mins}
-                  variant={isSelected ? 'scribble' : 'outline'}
+                  variant={isSelected ? "scribble" : "outline"}
                   onClick={() => {
                     setSelectedMinutes(p.mins);
-                    setCustomMinutes('');
+                    setCustomMinutes("");
                   }}
                   className="!p-3 text-center"
                 >
-                  <span className="block text-sm font-display font-bold">{p.label}</span>
-                  <span className="block text-[10px] text-[#786c5e] mt-0.5">{p.desc}</span>
+                  <span className="block text-sm font-display font-bold">
+                    {p.label}
+                  </span>
+                  <span className="block text-[10px] text-[#786c5e] mt-0.5">
+                    {p.desc}
+                  </span>
                 </DrawablyButton>
               );
             })}
@@ -237,7 +255,9 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
             <button
               type="button"
               onClick={() => {
-                const nextIdx = (DEFAULT_MESSAGES.indexOf(customMessage) + 1) % DEFAULT_MESSAGES.length;
+                const nextIdx =
+                  (DEFAULT_MESSAGES.indexOf(customMessage) + 1) %
+                  DEFAULT_MESSAGES.length;
                 setCustomMessage(DEFAULT_MESSAGES[nextIdx]);
               }}
               className="text-[11px] text-[#b45309] hover:underline cursor-pointer"
@@ -264,18 +284,24 @@ export const StudyReminderSettingsModal: React.FC<StudyReminderProps> = ({
               }}
               className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                 soundEnabled
-                  ? 'bg-[#b45309] text-white border-[#b45309]'
-                  : 'bg-[#fffdfa] text-[#8c7e6d] border-[#ded2bd]'
+                  ? "bg-[#b45309] text-white border-[#b45309]"
+                  : "bg-[#fffdfa] text-[#8c7e6d] border-[#ded2bd]"
               }`}
-              title={soundEnabled ? '已开启温和提示音' : '已静音'}
+              title={soundEnabled ? "已开启温和提示音" : "已静音"}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              {soundEnabled ? (
+                <Volume2 className="w-4 h-4" />
+              ) : (
+                <VolumeX className="w-4 h-4" />
+              )}
             </button>
             <div>
               <div className="text-xs font-bold text-[#26201a]">
-                {soundEnabled ? '已启用温和风铃音效' : '仅弹窗提醒 (静音模式)'}
+                {soundEnabled ? "已启用温和风铃音效" : "仅弹窗提醒 (静音模式)"}
               </div>
-              <div className="text-[10px] text-[#8c7e6d]">采用纯净和弦合成音，宁静不刺耳</div>
+              <div className="text-[10px] text-[#8c7e6d]">
+                采用纯净和弦合成音，宁静不刺耳
+              </div>
             </div>
           </div>
 
@@ -371,7 +397,9 @@ export const GentleAlertModal: React.FC<GentleAlertModalProps> = ({
           <Heart className="w-4 h-4 text-[#c2410c] shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-[#26201a]">护眼小贴士：</span>
-            <span>向窗外或远处凝视 20 秒，缓缓深呼吸 3 次，让神经系统充分蓄能！</span>
+            <span>
+              向窗外或远处凝视 20 秒，缓缓深呼吸 3 次，让神经系统充分蓄能！
+            </span>
           </div>
         </div>
 

@@ -15,7 +15,10 @@ import { PatternLab } from "./components/PatternLab";
 import { ExamMode } from "./components/ExamMode";
 import { MistakeBook } from "./components/MistakeBook";
 import { FormulaGuide } from "./components/FormulaGuide";
-import { AnalyticsView, COLLAPSE_STORAGE_KEY } from "./components/AnalyticsView";
+import {
+  AnalyticsView,
+  COLLAPSE_STORAGE_KEY,
+} from "./components/AnalyticsView";
 import { AITutorModal } from "./components/AITutorModal";
 import { AIVariantBank } from "./components/AIVariantBank";
 import { ResetConfirmModal } from "./components/ResetConfirmModal";
@@ -673,7 +676,9 @@ export const App: React.FC = () => {
       <footer className="border-t border-dashed border-[#cdbb97] bg-[var(--card)] py-7 mt-12 text-xs text-[color:var(--ink-soft)]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-center sm:text-left">
-            <strong className="font-display text-base text-[color:var(--ink)]">上岸测评</strong>
+            <strong className="font-display text-base text-[color:var(--ink)]">
+              上岸测评
+            </strong>
             <span className="ml-2">© 2026 · 把每次练习，写成上岸进度</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[#8c7e6d]">

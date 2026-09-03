@@ -1,6 +1,6 @@
-import React from 'react';
-import { RotateCcw, AlertTriangle, X } from 'lucide-react';
-import { DrawablyButton } from 'drawably/react';
+import React from "react";
+import { RotateCcw, AlertTriangle, X } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface ResetConfirmModalProps {
   isOpen: boolean;
@@ -16,8 +16,8 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  title = '重置所有练习记录与学情',
-  description = '此操作将清空全站题库作答历史、错题集、收藏题单与各模块统计数据，重置后无法撤销。',
+  title = "重置所有练习记录与学情",
+  description = "此操作将清空全站题库作答历史、错题集、收藏题单与各模块统计数据，重置后无法撤销。",
   answeredCount,
   mistakeCount,
 }) => {
@@ -37,8 +37,12 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold text-[#26201a] text-lg font-display">{title}</h3>
-              <p className="text-xs text-[#786c5e] mt-0.5">请再次确认是否重置练习数据</p>
+              <h3 className="font-bold text-[#26201a] text-lg font-display">
+                {title}
+              </h3>
+              <p className="text-xs text-[#786c5e] mt-0.5">
+                请再次确认是否重置练习数据
+              </p>
             </div>
           </div>
           <button
@@ -55,11 +59,15 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#ded3bd] text-center">
             <div className="bg-[#fffdfa] p-2 rounded-xl border border-[#ded3bd]">
               <span className="text-[#8c7e6d] text-[11px]">当前已刷题数</span>
-              <div className="font-bold font-display text-[#26201a] text-lg mt-0.5">{answeredCount} 题</div>
+              <div className="font-bold font-display text-[#26201a] text-lg mt-0.5">
+                {answeredCount} 题
+              </div>
             </div>
             <div className="bg-[#fffdfa] p-2 rounded-xl border border-[#ded3bd]">
               <span className="text-[#8c7e6d] text-[11px]">收录错题数</span>
-              <div className="font-bold font-display text-[#b91c1c] text-lg mt-0.5">{mistakeCount} 题</div>
+              <div className="font-bold font-display text-[#b91c1c] text-lg mt-0.5">
+                {mistakeCount} 题
+              </div>
             </div>
           </div>
         </div>

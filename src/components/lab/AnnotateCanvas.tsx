@@ -99,7 +99,11 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
           className="!px-3 !py-1.5 font-semibold"
         >
           <span className="flex items-center gap-1.5">
-            {enabled ? <PencilOff className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+            {enabled ? (
+              <PencilOff className="w-3.5 h-3.5" />
+            ) : (
+              <Pencil className="w-3.5 h-3.5" />
+            )}
             {enabled ? "关闭标注" : "标注题面"}
           </span>
         </DrawablyButton>
@@ -111,14 +115,18 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
                 onClick={() => setTool("dot")}
                 className="!px-2.5 !py-1 font-medium"
               >
-                <span className="flex items-center gap-1"><CircleDot className="w-3.5 h-3.5" /> 点数计数</span>
+                <span className="flex items-center gap-1">
+                  <CircleDot className="w-3.5 h-3.5" /> 点数计数
+                </span>
               </DrawablyButton>
               <DrawablyButton
                 variant={tool === "ellipse" ? "scribble" : "outline"}
                 onClick={() => setTool("ellipse")}
                 className="!px-2.5 !py-1 font-medium"
               >
-                <span className="flex items-center gap-1"><Circle className="w-3.5 h-3.5" /> 圈选画笔</span>
+                <span className="flex items-center gap-1">
+                  <Circle className="w-3.5 h-3.5" /> 圈选画笔
+                </span>
               </DrawablyButton>
             </div>
             {tool === "dot" &&
@@ -147,7 +155,9 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
               disabled={!marks.length}
               className="!px-2.5 !py-1 font-medium"
             >
-              <span className="flex items-center gap-1"><Undo2 className="w-3.5 h-3.5" /> 撤销</span>
+              <span className="flex items-center gap-1">
+                <Undo2 className="w-3.5 h-3.5" /> 撤销
+              </span>
             </DrawablyButton>
             <DrawablyButton
               tone="danger"
@@ -155,7 +165,9 @@ export const AnnotateCanvas: React.FC<{ children: React.ReactNode }> = ({
               disabled={!marks.length}
               className="!px-2.5 !py-1 font-medium"
             >
-              <span className="flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> 清空</span>
+              <span className="flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" /> 清空
+              </span>
             </DrawablyButton>
           </>
         )}

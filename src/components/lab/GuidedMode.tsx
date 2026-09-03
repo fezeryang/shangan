@@ -246,7 +246,9 @@ export const GuidedMode: React.FC<GuidedModeProps> = ({
               onClick={() => setSub(null)}
               className="!px-3 !py-1.5 text-xs font-semibold"
             >
-              <span className="flex items-center gap-1"><ArrowLeft className="w-3.5 h-3.5" /> 换考点</span>
+              <span className="flex items-center gap-1">
+                <ArrowLeft className="w-3.5 h-3.5" /> 换考点
+              </span>
             </DrawablyButton>
             <DrawablyButton
               variant="solid"

@@ -1,14 +1,14 @@
-import type React from 'react';
-import { useEffect, useRef, useState, useMemo } from 'react';
-import * as d3 from 'd3';
-import type { Question, StudyStats, UserAnswerRecord } from '../types';
-import { allQuestions } from '../data/allQuestions';
+import type React from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import * as d3 from "d3";
+import type { Question, StudyStats, UserAnswerRecord } from "../types";
+import { allQuestions } from "../data/allQuestions";
 import {
   RAW_KNOWLEDGE_POINTS,
   EXTRA_RELATIONS,
   findKnowledgePointForQuestion,
   computePointStats,
-} from '../data/knowledgeTaxonomy';
+} from "../data/knowledgeTaxonomy";
 import {
   Network,
   Compass,
@@ -22,8 +22,8 @@ import {
   ZoomOut,
   RotateCcw,
   Target,
-} from 'lucide-react';
-import { DrawablyButton } from 'drawably/react';
+} from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface QuestionKnowledgeModalProps {
   isOpen: boolean;
@@ -38,9 +38,9 @@ interface GraphNode extends d3.SimulationNodeDatum {
   id: string;
   name: string;
   shortName: string;
-  category: 'root' | 'verbal' | 'data' | 'graphic';
+  category: "root" | "verbal" | "data" | "graphic";
   categoryName: string;
-  type: 'root' | 'category' | 'topic';
+  type: "root" | "category" | "topic";
   isTarget?: boolean;
   isPrerequisite?: boolean;
   isNextStep?: boolean;
@@ -49,7 +49,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   attemptedCount: number;
   correctCount: number;
   mistakesCount: number;
-  status: 'mastered' | 'moderate' | 'weak' | 'unpracticed';
+  status: "mastered" | "moderate" | "weak" | "unpracticed";
   description: string;
   examWeight: string;
   keyFormulaOrTip: string;
@@ -59,7 +59,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
 interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
   source: string | GraphNode;
   target: string | GraphNode;
-  type: 'hierarchy' | 'prerequisite' | 'weakness_warning' | 'cross_domain';
+  type: "hierarchy" | "prerequisite" | "weakness_warning" | "cross_domain";
   label?: string;
 }
 
@@ -71,13 +71,18 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
   answerRecords = [],
   onNavigateToSubCategory,
 }) => {
-  const targetPoint = useMemo(() => findKnowledgePointForQuestion(question), [question]);
-  const [viewMode, setViewMode] = useState<'focused' | 'global'>('focused');
+  const targetPoint = useMemo(
+    () => findKnowledgePointForQuestion(question),
+    [question],
+  );
+  const [viewMode, setViewMode] = useState<"focused" | "global">("focused");
   const [activeNodeId, setActiveNodeId] = useState<string>(targetPoint.id);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(
+    null,
+  );
 
   // Sync activeNodeId when question or target changes
   useEffect(() => {
@@ -86,7 +91,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
 
   // Compute node mastery metrics（完全由题库与真实作答记录计算，无作答时标为未练习）
   const activePointInfo = useMemo(() => {
-    const found = RAW_KNOWLEDGE_POINTS.find((p) => p.id === activeNodeId) || targetPoint;
+    const found =
+      RAW_KNOWLEDGE_POINTS.find((p) => p.id === activeNodeId) || targetPoint;
     const ps = computePointStats(found, allQuestions, answerRecords, stats);
 
     return {
@@ -103,7 +109,12 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
   // 构建单考点图节点（真实统计）
   const buildTopicNode = (
     point: (typeof RAW_KNOWLEDGE_POINTS)[number],
-    opts: { isTarget?: boolean; isPrerequisite?: boolean; isNextStep?: boolean; radius?: number }
+    opts: {
+      isTarget?: boolean;
+      isPrerequisite?: boolean;
+      isNextStep?: boolean;
+      radius?: number;
+    },
   ): GraphNode => {
     const ps = computePointStats(point, allQuestions, answerRecords, stats);
     return {
@@ -112,7 +123,7 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       shortName: point.shortName,
       category: point.category,
       categoryName: point.categoryName,
-      type: 'topic',
+      type: "topic",
       isTarget: opts.isTarget,
       isPrerequisite: opts.isPrerequisite,
       isNextStep: opts.isNextStep,
@@ -130,46 +141,65 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
   };
 
   // 构建模块节点（真实统计：题库题量 + 该模块作答正确率）
-  const buildCategoryNode = (category: 'verbal' | 'data' | 'graphic', name: string): GraphNode => {
+  const buildCategoryNode = (
+    category: "verbal" | "data" | "graphic",
+    name: string,
+  ): GraphNode => {
     const catQuestions = allQuestions.filter((q) => q.category === category);
     const ids = new Set(catQuestions.map((q) => q.id));
     const records = answerRecords.filter((r) => ids.has(r.questionId));
     const attemptedCount = records.length;
     const correctCount = records.filter((r) => r.isCorrect).length;
-    const acc = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : null;
-    const mistakesCount = stats?.mistakeIds.filter((id) => ids.has(id)).length || 0;
+    const acc =
+      attemptedCount > 0
+        ? Math.round((correctCount / attemptedCount) * 100)
+        : null;
+    const mistakesCount =
+      stats?.mistakeIds.filter((id) => ids.has(id)).length || 0;
     return {
       id: `cat_${category}`,
       name,
       shortName: name.slice(0, 4),
       category,
       categoryName: name,
-      type: 'category',
+      type: "category",
       masteryScore: acc ?? 0,
       totalQuestions: catQuestions.length,
       attemptedCount,
       correctCount,
       mistakesCount,
       status:
-        acc === null ? 'unpracticed' : acc >= 80 ? 'mastered' : acc >= 65 ? 'moderate' : 'weak',
+        acc === null
+          ? "unpracticed"
+          : acc >= 80
+            ? "mastered"
+            : acc >= 65
+              ? "moderate"
+              : "weak",
       description: `上岸测评 ${name} 核心能力体系（题库真题 ${catQuestions.length} 道）`,
-      examWeight: '模块核心',
-      keyFormulaOrTip: '系统掌握基础模型与速算解题策略。',
+      examWeight: "模块核心",
+      keyFormulaOrTip: "系统掌握基础模型与速算解题策略。",
       radius: 30,
     };
   };
 
   // Build Graph Data
   const { nodes, links } = useMemo(() => {
-    if (viewMode === 'focused') {
+    if (viewMode === "focused") {
       // Subgraph focused around targetPoint
       const nodesMap = new Map<string, GraphNode>();
 
       // 1. Target node
-      nodesMap.set(targetPoint.id, buildTopicNode(targetPoint, { isTarget: true, radius: 34 }));
+      nodesMap.set(
+        targetPoint.id,
+        buildTopicNode(targetPoint, { isTarget: true, radius: 34 }),
+      );
 
       // 2. Category Hub
-      const catNode = buildCategoryNode(targetPoint.category, targetPoint.categoryName);
+      const catNode = buildCategoryNode(
+        targetPoint.category,
+        targetPoint.categoryName,
+      );
       nodesMap.set(catNode.id, catNode);
       const catId = catNode.id;
 
@@ -177,25 +207,34 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       targetPoint.prerequisites.forEach((preId) => {
         const pre = RAW_KNOWLEDGE_POINTS.find((p) => p.id === preId);
         if (pre) {
-          nodesMap.set(pre.id, buildTopicNode(pre, { isPrerequisite: true, radius: 24 }));
+          nodesMap.set(
+            pre.id,
+            buildTopicNode(pre, { isPrerequisite: true, radius: 24 }),
+          );
         }
       });
 
       // 4. Downstream / Next steps
       const downstream = (targetPoint.nextSteps || []).concat(
-        RAW_KNOWLEDGE_POINTS.filter((p) => p.prerequisites.includes(targetPoint.id)).map((p) => p.id)
+        RAW_KNOWLEDGE_POINTS.filter((p) =>
+          p.prerequisites.includes(targetPoint.id),
+        ).map((p) => p.id),
       );
       Array.from(new Set(downstream)).forEach((nextId) => {
         const next = RAW_KNOWLEDGE_POINTS.find((p) => p.id === nextId);
         if (next) {
-          nodesMap.set(next.id, buildTopicNode(next, { isNextStep: true, radius: 24 }));
+          nodesMap.set(
+            next.id,
+            buildTopicNode(next, { isNextStep: true, radius: 24 }),
+          );
         }
       });
 
       // 5. Related extra relations
       EXTRA_RELATIONS.forEach((rel) => {
         if (rel.source === targetPoint.id || rel.target === targetPoint.id) {
-          const otherId = rel.source === targetPoint.id ? rel.target : rel.source;
+          const otherId =
+            rel.source === targetPoint.id ? rel.target : rel.source;
           const other = RAW_KNOWLEDGE_POINTS.find((p) => p.id === otherId);
           if (other && !nodesMap.has(other.id)) {
             nodesMap.set(other.id, buildTopicNode(other, { radius: 22 }));
@@ -209,8 +248,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
       linkList.push({
         source: catId,
         target: targetPoint.id,
-        type: 'hierarchy',
-        label: '核心归属',
+        type: "hierarchy",
+        label: "核心归属",
       });
 
       // Pre -> Target
@@ -219,8 +258,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           linkList.push({
             source: preId,
             target: targetPoint.id,
-            type: 'prerequisite',
-            label: '前置基础',
+            type: "prerequisite",
+            label: "前置基础",
           });
         }
       });
@@ -231,8 +270,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           linkList.push({
             source: targetPoint.id,
             target: nextId,
-            type: 'prerequisite',
-            label: '延伸进阶',
+            type: "prerequisite",
+            label: "延伸进阶",
           });
         }
       });
@@ -257,12 +296,12 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
           ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100)
           : null;
       const rootNode: GraphNode = {
-        id: 'root_hub',
-        name: '上岸测评能力全景',
-        shortName: '能力全景',
-        category: 'root',
-        categoryName: '全科综合',
-        type: 'root',
+        id: "root_hub",
+        name: "上岸测评能力全景",
+        shortName: "能力全景",
+        category: "root",
+        categoryName: "全科综合",
+        type: "root",
         masteryScore: totalAcc ?? 0,
         totalQuestions: allQuestions.length,
         attemptedCount: stats?.totalAnswered || 0,
@@ -270,46 +309,49 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
         mistakesCount: stats?.mistakeIds.length || 0,
         status:
           totalAcc === null
-            ? 'unpracticed'
+            ? "unpracticed"
             : totalAcc >= 80
-            ? 'mastered'
-            : totalAcc >= 65
-            ? 'moderate'
-            : 'weak',
-        description: '核心测评三大模块知识图谱体系',
-        examWeight: '全科 100%',
-        keyFormulaOrTip: '全科协同，掌握核心题型规律。',
+              ? "mastered"
+              : totalAcc >= 65
+                ? "moderate"
+                : "weak",
+        description: "核心测评三大模块知识图谱体系",
+        examWeight: "全科 100%",
+        keyFormulaOrTip: "全科协同，掌握核心题型规律。",
         radius: 30,
       };
 
       const catNodes: GraphNode[] = [
-        buildCategoryNode('verbal', '言语理解与推理'),
-        buildCategoryNode('data', '资料分析与计算'),
-        buildCategoryNode('graphic', '图形推理空间思维'),
+        buildCategoryNode("verbal", "言语理解与推理"),
+        buildCategoryNode("data", "资料分析与计算"),
+        buildCategoryNode("graphic", "图形推理空间思维"),
       ];
 
       const topicNodes: GraphNode[] = RAW_KNOWLEDGE_POINTS.map((item) =>
-        buildTopicNode(item, { isTarget: item.id === targetPoint.id, radius: item.id === targetPoint.id ? 28 : 18 })
+        buildTopicNode(item, {
+          isTarget: item.id === targetPoint.id,
+          radius: item.id === targetPoint.id ? 28 : 18,
+        }),
       );
 
       const linkList: GraphLink[] = [
-        { source: 'root_hub', target: 'cat_verbal', type: 'hierarchy' },
-        { source: 'root_hub', target: 'cat_data', type: 'hierarchy' },
-        { source: 'root_hub', target: 'cat_graphic', type: 'hierarchy' },
+        { source: "root_hub", target: "cat_verbal", type: "hierarchy" },
+        { source: "root_hub", target: "cat_data", type: "hierarchy" },
+        { source: "root_hub", target: "cat_graphic", type: "hierarchy" },
       ];
 
       RAW_KNOWLEDGE_POINTS.forEach((pt) => {
         linkList.push({
           source: `cat_${pt.category}`,
           target: pt.id,
-          type: 'hierarchy',
+          type: "hierarchy",
         });
         pt.prerequisites.forEach((preId) => {
           linkList.push({
             source: preId,
             target: pt.id,
-            type: 'prerequisite',
-            label: '前置',
+            type: "prerequisite",
+            label: "前置",
           });
         });
       });
@@ -335,62 +377,62 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
     const height = 360;
 
     const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
+    svg.selectAll("*").remove();
 
-    svg.attr('viewBox', [0, 0, width, height]);
+    svg.attr("viewBox", [0, 0, width, height]);
 
     // Defs for markers & filters
-    const defs = svg.append('defs');
+    const defs = svg.append("defs");
 
     // Arrow markers
     defs
-      .append('marker')
-      .attr('id', 'arrow-hierarchy')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 24)
-      .attr('refY', 0)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M0,-4L8,0L0,4')
-      .attr('fill', '#c4b59d');
+      .append("marker")
+      .attr("id", "arrow-hierarchy")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 24)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-4L8,0L0,4")
+      .attr("fill", "#c4b59d");
 
     defs
-      .append('marker')
-      .attr('id', 'arrow-prerequisite')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 26)
-      .attr('refY', 0)
-      .attr('markerWidth', 7)
-      .attr('markerHeight', 7)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M0,-4L9,0L0,4')
-      .attr('fill', '#b45309');
+      .append("marker")
+      .attr("id", "arrow-prerequisite")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 26)
+      .attr("refY", 0)
+      .attr("markerWidth", 7)
+      .attr("markerHeight", 7)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-4L9,0L0,4")
+      .attr("fill", "#b45309");
 
     defs
-      .append('marker')
-      .attr('id', 'arrow-cross')
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 24)
-      .attr('refY', 0)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M0,-4L8,0L0,4')
-      .attr('fill', '#92400e');
+      .append("marker")
+      .attr("id", "arrow-cross")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 24)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-4L8,0L0,4")
+      .attr("fill", "#92400e");
 
     // Container Group for Zoom/Pan
-    const g = svg.append('g').attr('class', 'main-graph-group');
+    const g = svg.append("g").attr("class", "main-graph-group");
 
     // Setup Zoom
     const zoomBehavior = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 3.5])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform);
       });
 
     svg.call(zoomBehavior);
@@ -402,196 +444,217 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
     const simNodes = nodes.map((d) => ({ ...d }));
     const simLinks = links.map((d) => ({ ...d }));
 
-    const chargeStrength = viewMode === 'focused' ? -420 : -280;
-    const distanceFactor = viewMode === 'focused' ? 120 : 75;
+    const chargeStrength = viewMode === "focused" ? -420 : -280;
+    const distanceFactor = viewMode === "focused" ? 120 : 75;
 
     const simulation = d3
       .forceSimulation<GraphNode>(simNodes)
       .force(
-        'link',
+        "link",
         d3
           .forceLink<GraphNode, GraphLink>(simLinks)
           .id((d) => d.id)
           .distance((d) => {
-            if (d.type === 'hierarchy') return distanceFactor * 0.9;
-            if (d.type === 'prerequisite') return distanceFactor * 1.1;
+            if (d.type === "hierarchy") return distanceFactor * 0.9;
+            if (d.type === "prerequisite") return distanceFactor * 1.1;
             return distanceFactor * 1.2;
           })
-          .strength((d) => (d.type === 'hierarchy' ? 0.7 : 0.5))
+          .strength((d) => (d.type === "hierarchy" ? 0.7 : 0.5)),
       )
-      .force('charge', d3.forceManyBody().strength(chargeStrength))
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.8))
-      .force('collision', d3.forceCollide<GraphNode>().radius((d) => (d.radius || 20) + 16))
+      .force("charge", d3.forceManyBody().strength(chargeStrength))
+      .force("center", d3.forceCenter(width / 2, height / 2).strength(0.8))
+      .force(
+        "collision",
+        d3.forceCollide<GraphNode>().radius((d) => (d.radius || 20) + 16),
+      )
       .alphaDecay(0.04);
 
     simulationRef.current = simulation;
 
     // Draw Links
-    const linkGroup = g.append('g').attr('class', 'links');
+    const linkGroup = g.append("g").attr("class", "links");
     const link = linkGroup
-      .selectAll('line')
+      .selectAll("line")
       .data(simLinks)
-      .join('line')
-      .attr('stroke', (d) => {
-        if (d.type === 'prerequisite') return '#b45309';
-        if (d.type === 'cross_domain') return '#854d0e';
-        return '#dccfb7';
+      .join("line")
+      .attr("stroke", (d) => {
+        if (d.type === "prerequisite") return "#b45309";
+        if (d.type === "cross_domain") return "#854d0e";
+        return "#dccfb7";
       })
-      .attr('stroke-width', (d) => {
-        if (d.type === 'prerequisite') return 2.2;
+      .attr("stroke-width", (d) => {
+        if (d.type === "prerequisite") return 2.2;
         return 1.4;
       })
-      .attr('stroke-dasharray', (d) => {
-        if (d.type === 'prerequisite') return '4,3';
-        if (d.type === 'cross_domain') return '2,3';
-        return 'none';
+      .attr("stroke-dasharray", (d) => {
+        if (d.type === "prerequisite") return "4,3";
+        if (d.type === "cross_domain") return "2,3";
+        return "none";
       })
-      .attr('marker-end', (d) => {
-        if (d.type === 'prerequisite') return 'url(#arrow-prerequisite)';
-        if (d.type === 'cross_domain') return 'url(#arrow-cross)';
-        return 'url(#arrow-hierarchy)';
+      .attr("marker-end", (d) => {
+        if (d.type === "prerequisite") return "url(#arrow-prerequisite)";
+        if (d.type === "cross_domain") return "url(#arrow-cross)";
+        return "url(#arrow-hierarchy)";
       });
 
     // Link Labels
     const linkLabels = g
-      .append('g')
-      .attr('class', 'link-labels')
-      .selectAll('text')
+      .append("g")
+      .attr("class", "link-labels")
+      .selectAll("text")
       .data(simLinks.filter((d) => d.label))
-      .join('text')
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '9px')
-      .attr('font-weight', '600')
-      .attr('fill', '#8c765c')
-      .attr('dy', -4)
-      .text((d) => d.label || '');
+      .join("text")
+      .attr("text-anchor", "middle")
+      .attr("font-size", "9px")
+      .attr("font-weight", "600")
+      .attr("fill", "#8c765c")
+      .attr("dy", -4)
+      .text((d) => d.label || "");
 
     // Draw Nodes
-    const nodeGroup = g.append('g').attr('class', 'nodes');
+    const nodeGroup = g.append("g").attr("class", "nodes");
     const node = nodeGroup
-      .selectAll('g')
+      .selectAll("g")
       .data(simNodes)
-      .join('g')
-      .attr('cursor', 'pointer')
-      .on('click', (_, d) => {
+      .join("g")
+      .attr("cursor", "pointer")
+      .on("click", (_, d) => {
         setActiveNodeId(d.id);
       })
       .call(
         d3
           .drag<SVGGElement, GraphNode>()
-          .on('start', (event, d) => {
+          .on("start", (event, d) => {
             if (!event.active) simulation.alphaTarget(0.3).restart();
             d.fx = d.x;
             d.fy = d.y;
           })
-          .on('drag', (event, d) => {
+          .on("drag", (event, d) => {
             d.fx = event.x;
             d.fy = event.y;
           })
-          .on('end', (event, d) => {
+          .on("end", (event, d) => {
             if (!event.active) simulation.alphaTarget(0);
             d.fx = null;
             d.fy = null;
-          })
+          }),
       );
 
     // Target pulse outer aura
     node
       .filter((d) => !!d.isTarget)
-      .append('circle')
-      .attr('r', (d) => d.radius + 10)
-      .attr('fill', 'none')
-      .attr('stroke', '#b45309')
-      .attr('stroke-width', 2)
-      .attr('stroke-dasharray', '3,3')
-      .attr('opacity', 0.8)
-      .append('animateTransform')
-      .attr('attributeName', 'transform')
-      .attr('type', 'rotate')
-      .attr('from', '0')
-      .attr('to', '360')
-      .attr('dur', '16s')
-      .attr('repeatCount', 'indefinite');
+      .append("circle")
+      .attr("r", (d) => d.radius + 10)
+      .attr("fill", "none")
+      .attr("stroke", "#b45309")
+      .attr("stroke-width", 2)
+      .attr("stroke-dasharray", "3,3")
+      .attr("opacity", 0.8)
+      .append("animateTransform")
+      .attr("attributeName", "transform")
+      .attr("type", "rotate")
+      .attr("from", "0")
+      .attr("to", "360")
+      .attr("dur", "16s")
+      .attr("repeatCount", "indefinite");
 
     // Node Base Circle
     node
-      .append('circle')
-      .attr('r', (d) => d.radius)
-      .attr('fill', (d) => {
-        if (d.isTarget) return '#b45309';
-        if (d.type === 'root') return '#2c241d';
-        if (d.type === 'category') {
-          return d.category === 'verbal' ? '#4338ca' : d.category === 'data' ? '#047857' : '#9a3412';
+      .append("circle")
+      .attr("r", (d) => d.radius)
+      .attr("fill", (d) => {
+        if (d.isTarget) return "#b45309";
+        if (d.type === "root") return "#2c241d";
+        if (d.type === "category") {
+          return d.category === "verbal"
+            ? "#4338ca"
+            : d.category === "data"
+              ? "#047857"
+              : "#9a3412";
         }
-        if (d.isPrerequisite) return '#d97706';
-        if (d.isNextStep) return '#78350f';
-        return '#faf6ee';
+        if (d.isPrerequisite) return "#d97706";
+        if (d.isNextStep) return "#78350f";
+        return "#faf6ee";
       })
-      .attr('stroke', (d) => {
-        if (d.isTarget) return '#fef3c7';
-        if (d.type === 'root') return '#e3d9c4';
-        if (d.type === 'category') return '#ffffff';
-        if (d.id === activeNodeId) return '#b45309';
-        return '#dccfb7';
+      .attr("stroke", (d) => {
+        if (d.isTarget) return "#fef3c7";
+        if (d.type === "root") return "#e3d9c4";
+        if (d.type === "category") return "#ffffff";
+        if (d.id === activeNodeId) return "#b45309";
+        return "#dccfb7";
       })
-      .attr('stroke-width', (d) => (d.isTarget || d.id === activeNodeId ? 3 : 1.5))
-      .attr('filter', (d) => (d.isTarget ? 'drop-shadow(0 2px 8px rgba(180,83,9,0.35))' : 'none'));
+      .attr("stroke-width", (d) =>
+        d.isTarget || d.id === activeNodeId ? 3 : 1.5,
+      )
+      .attr("filter", (d) =>
+        d.isTarget ? "drop-shadow(0 2px 8px rgba(180,83,9,0.35))" : "none",
+      );
 
     // Node Text (Short Name)
     node
-      .append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', (d) => (d.type === 'topic' && !d.isTarget ? '0.35em' : '0.35em'))
-      .attr('font-size', (d) => {
-        if (d.isTarget) return '11px';
-        if (d.type === 'root' || d.type === 'category') return '10.5px';
-        return '9.5px';
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", (d) =>
+        d.type === "topic" && !d.isTarget ? "0.35em" : "0.35em",
+      )
+      .attr("font-size", (d) => {
+        if (d.isTarget) return "11px";
+        if (d.type === "root" || d.type === "category") return "10.5px";
+        return "9.5px";
       })
-      .attr('font-weight', (d) => (d.isTarget || d.type === 'root' ? '800' : '600'))
-      .attr('fill', (d) => {
-        if (d.isTarget || d.type === 'root' || d.type === 'category' || d.isPrerequisite || d.isNextStep) {
-          return '#ffffff';
+      .attr("font-weight", (d) =>
+        d.isTarget || d.type === "root" ? "800" : "600",
+      )
+      .attr("fill", (d) => {
+        if (
+          d.isTarget ||
+          d.type === "root" ||
+          d.type === "category" ||
+          d.isPrerequisite ||
+          d.isNextStep
+        ) {
+          return "#ffffff";
         }
-        return '#3d3124';
+        return "#3d3124";
       })
       .text((d) => d.shortName);
 
     // Target Tag Badge on top
     const targetNodes = node.filter((d) => !!d.isTarget);
     targetNodes
-      .append('rect')
-      .attr('x', -28)
-      .attr('y', (d) => -d.radius - 14)
-      .attr('width', 56)
-      .attr('height', 16)
-      .attr('rx', 4)
-      .attr('fill', '#2c241d')
-      .attr('stroke', '#b45309')
-      .attr('stroke-width', 1);
+      .append("rect")
+      .attr("x", -28)
+      .attr("y", (d) => -d.radius - 14)
+      .attr("width", 56)
+      .attr("height", 16)
+      .attr("rx", 4)
+      .attr("fill", "#2c241d")
+      .attr("stroke", "#b45309")
+      .attr("stroke-width", 1);
 
     targetNodes
-      .append('text')
-      .attr('x', 0)
-      .attr('y', (d) => -d.radius - 3)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '8.5px')
-      .attr('font-weight', '700')
-      .attr('fill', '#fef3c7')
-      .text('当前本题考点');
+      .append("text")
+      .attr("x", 0)
+      .attr("y", (d) => -d.radius - 3)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "8.5px")
+      .attr("font-weight", "700")
+      .attr("fill", "#fef3c7")
+      .text("当前本题考点");
 
     // Simulation Ticking
-    simulation.on('tick', () => {
+    simulation.on("tick", () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr("x1", (d: any) => d.source.x)
+        .attr("y1", (d: any) => d.source.y)
+        .attr("x2", (d: any) => d.target.x)
+        .attr("y2", (d: any) => d.target.y);
 
       linkLabels
-        .attr('x', (d: any) => (d.source.x + d.target.x) / 2)
-        .attr('y', (d: any) => (d.source.y + d.target.y) / 2);
+        .attr("x", (d: any) => (d.source.x + d.target.x) / 2)
+        .attr("y", (d: any) => (d.source.y + d.target.y) / 2);
 
-      node.attr('transform', (d) => `translate(${d.x},${d.y})`);
+      node.attr("transform", (d) => `translate(${d.x},${d.y})`);
     });
 
     return () => {
@@ -602,7 +665,11 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
   if (!isOpen) return null;
 
   const CategoryIcon =
-    question.category === 'verbal' ? BookOpen : question.category === 'data' ? BarChart3 : Shapes;
+    question.category === "verbal"
+      ? BookOpen
+      : question.category === "data"
+        ? BarChart3
+        : Shapes;
 
   return (
     <div
@@ -654,15 +721,15 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                 <span className="text-[#8c7e6d] font-semibold">图谱视野:</span>
                 <div className="flex gap-1.5">
                   <DrawablyButton
-                    variant={viewMode === 'focused' ? 'scribble' : 'outline'}
-                    onClick={() => setViewMode('focused')}
+                    variant={viewMode === "focused" ? "scribble" : "outline"}
+                    onClick={() => setViewMode("focused")}
                     className="!px-3 !py-1 font-semibold"
                   >
                     🎯 本题考点网络 (推荐)
                   </DrawablyButton>
                   <DrawablyButton
-                    variant={viewMode === 'global' ? 'scribble' : 'outline'}
-                    onClick={() => setViewMode('global')}
+                    variant={viewMode === "global" ? "scribble" : "outline"}
+                    onClick={() => setViewMode("global")}
                     className="!px-3 !py-1 font-semibold"
                   >
                     🌐 全科全景图谱
@@ -672,13 +739,16 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
 
               <div className="flex items-center gap-2 text-[11px] text-[#786c5e]">
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#b45309]"></span> 当前考点
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#b45309]"></span>{" "}
+                  当前考点
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#d97706]"></span> 前置基础
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#d97706]"></span>{" "}
+                  前置基础
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#78350f]"></span> 延伸进阶
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#78350f]"></span>{" "}
+                  延伸进阶
                 </span>
               </div>
             </div>
@@ -688,14 +758,20 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               ref={containerRef}
               className="relative w-full h-[320px] sm:h-[360px] bg-[#fbf9f4] rounded-lg border border-[#ebdcb9] overflow-hidden select-none"
             >
-              <svg ref={svgRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+              <svg
+                ref={svgRef}
+                className="w-full h-full cursor-grab active:cursor-grabbing"
+              />
 
               {/* Floating Canvas Controls */}
               <div className="absolute right-3 bottom-3 flex flex-col gap-1 bg-[#fdfbf7]/90 backdrop-blur-xs p-1 rounded-lg border border-[#e3d9c4] shadow-xs">
                 <button
                   onClick={() => {
                     if (svgRef.current) {
-                      d3.select(svgRef.current).transition().duration(250).call(d3.zoom().scaleBy as any, 1.25);
+                      d3.select(svgRef.current)
+                        .transition()
+                        .duration(250)
+                        .call(d3.zoom().scaleBy as any, 1.25);
                     }
                   }}
                   className="p-1 text-[#6e6153] hover:text-[#26201a] hover:bg-[#f3ebd9] rounded cursor-pointer"
@@ -706,7 +782,10 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                 <button
                   onClick={() => {
                     if (svgRef.current) {
-                      d3.select(svgRef.current).transition().duration(250).call(d3.zoom().scaleBy as any, 0.8);
+                      d3.select(svgRef.current)
+                        .transition()
+                        .duration(250)
+                        .call(d3.zoom().scaleBy as any, 0.8);
                     }
                   }}
                   className="p-1 text-[#6e6153] hover:text-[#26201a] hover:bg-[#f3ebd9] rounded cursor-pointer"
@@ -717,7 +796,10 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                 <button
                   onClick={() => {
                     if (svgRef.current) {
-                      d3.select(svgRef.current).transition().duration(300).call(d3.zoom().transform as any, d3.zoomIdentity);
+                      d3.select(svgRef.current)
+                        .transition()
+                        .duration(300)
+                        .call(d3.zoom().transform as any, d3.zoomIdentity);
                     }
                   }}
                   className="p-1 text-[#6e6153] hover:text-[#26201a] hover:bg-[#f3ebd9] rounded cursor-pointer"
@@ -729,7 +811,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
 
               {/* Helper guide in corner */}
               <div className="absolute left-3 top-3 bg-[#fdfbf7]/90 px-2 py-1 rounded text-[10px] text-[#8c7e6d] border border-[#ebdcb9]">
-                💡 点击任意节点可查看该考点破题方法与前置链路；按住拖动可平移画布
+                💡
+                点击任意节点可查看该考点破题方法与前置链路；按住拖动可平移画布
               </div>
             </div>
           </div>
@@ -740,11 +823,11 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               <div className="flex items-center gap-2.5">
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white ${
-                    activePointInfo.point.category === 'verbal'
-                      ? 'bg-[#4338ca]'
-                      : activePointInfo.point.category === 'data'
-                      ? 'bg-[#047857]'
-                      : 'bg-[#b45309]'
+                    activePointInfo.point.category === "verbal"
+                      ? "bg-[#4338ca]"
+                      : activePointInfo.point.category === "data"
+                        ? "bg-[#047857]"
+                        : "bg-[#b45309]"
                   }`}
                 >
                   <CategoryIcon className="w-4 h-4" />
@@ -763,7 +846,9 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                   <div className="text-xs text-[#786c5e] flex items-center gap-2 mt-0.5">
                     <span>{activePointInfo.point.categoryName}</span>
                     <span>·</span>
-                    <span className="text-[#854d0e] font-semibold">{activePointInfo.point.examWeight}</span>
+                    <span className="text-[#854d0e] font-semibold">
+                      {activePointInfo.point.examWeight}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -771,42 +856,50 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               {/* Mastery Gauge */}
               <div className="flex items-center gap-3 bg-[#fffdfa] px-3.5 py-1.5 rounded-xl border border-[#ebdcb9] shadow-2xs">
                 <div className="text-right">
-                  <div className="text-[11px] text-[#786c5e]">个人掌握度（基于真实作答）</div>
+                  <div className="text-[11px] text-[#786c5e]">
+                    个人掌握度（基于真实作答）
+                  </div>
                   <div className="text-sm font-extrabold text-[#26201a]">
-                    {activePointInfo.status === 'unpracticed' ? '未练习' : `${activePointInfo.masteryScore}%`}{' '}
+                    {activePointInfo.status === "unpracticed"
+                      ? "未练习"
+                      : `${activePointInfo.masteryScore}%`}{" "}
                     <span
                       className={`text-xs font-semibold ${
-                        activePointInfo.status === 'mastered'
-                          ? 'text-[#15803d]'
-                          : activePointInfo.status === 'moderate'
-                          ? 'text-[#b45309]'
-                          : activePointInfo.status === 'unpracticed'
-                          ? 'text-[#94a3b8]'
-                          : 'text-[#b91c1c]'
+                        activePointInfo.status === "mastered"
+                          ? "text-[#15803d]"
+                          : activePointInfo.status === "moderate"
+                            ? "text-[#b45309]"
+                            : activePointInfo.status === "unpracticed"
+                              ? "text-[#94a3b8]"
+                              : "text-[#b91c1c]"
                       }`}
                     >
-                      ({activePointInfo.status === 'mastered'
-                        ? '熟练'
-                        : activePointInfo.status === 'moderate'
-                        ? '良好'
-                        : activePointInfo.status === 'unpracticed'
-                        ? '待练习'
-                        : '薄弱'})
+                      (
+                      {activePointInfo.status === "mastered"
+                        ? "熟练"
+                        : activePointInfo.status === "moderate"
+                          ? "良好"
+                          : activePointInfo.status === "unpracticed"
+                            ? "待练习"
+                            : "薄弱"}
+                      )
                     </span>
                   </div>
                 </div>
                 <div className="w-16 bg-[#eaddc5] h-2 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      activePointInfo.status === 'mastered'
-                        ? 'bg-[#15803d]'
-                        : activePointInfo.status === 'moderate'
-                        ? 'bg-[#b45309]'
-                        : activePointInfo.status === 'unpracticed'
-                        ? 'bg-[#cbd5e1]'
-                        : 'bg-[#b91c1c]'
+                      activePointInfo.status === "mastered"
+                        ? "bg-[#15803d]"
+                        : activePointInfo.status === "moderate"
+                          ? "bg-[#b45309]"
+                          : activePointInfo.status === "unpracticed"
+                            ? "bg-[#cbd5e1]"
+                            : "bg-[#b91c1c]"
                     }`}
-                    style={{ width: `${activePointInfo.status === 'unpracticed' ? 0 : activePointInfo.masteryScore}%` }}
+                    style={{
+                      width: `${activePointInfo.status === "unpracticed" ? 0 : activePointInfo.masteryScore}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -819,7 +912,9 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                   <Compass className="w-3.5 h-3.5" />
                   <span>考点内涵与考察目标</span>
                 </div>
-                <p className="text-[#4a3e31] leading-relaxed">{activePointInfo.point.description}</p>
+                <p className="text-[#4a3e31] leading-relaxed">
+                  {activePointInfo.point.description}
+                </p>
               </div>
 
               <div className="bg-[#fff8eb] p-3 rounded-lg border border-[#f0d8a8] space-y-1">
@@ -838,10 +933,14 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[#786c5e] font-semibold">前置考点:</span>
                 {activePointInfo.point.prerequisites.length === 0 ? (
-                  <span className="text-[#968877]">无前置依赖（基础起手考点）</span>
+                  <span className="text-[#968877]">
+                    无前置依赖（基础起手考点）
+                  </span>
                 ) : (
                   activePointInfo.point.prerequisites.map((preId) => {
-                    const pre = RAW_KNOWLEDGE_POINTS.find((p) => p.id === preId);
+                    const pre = RAW_KNOWLEDGE_POINTS.find(
+                      (p) => p.id === preId,
+                    );
                     return (
                       <button
                         key={preId}
@@ -861,14 +960,19 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
                 <DrawablyButton
                   variant="solid"
                   onClick={() => {
-                    onNavigateToSubCategory(activePointInfo.point.category, activePointInfo.point.shortName);
+                    onNavigateToSubCategory(
+                      activePointInfo.point.category,
+                      activePointInfo.point.shortName,
+                    );
                     onClose();
                   }}
                   className="!px-3.5 !py-1.5 font-semibold text-xs"
                 >
                   <span className="flex items-center gap-1.5">
                     <Target className="w-3.5 h-3.5" />
-                    <span>专项练习此考点 ({activePointInfo.questionCount} 题)</span>
+                    <span>
+                      专项练习此考点 ({activePointInfo.questionCount} 题)
+                    </span>
                   </span>
                 </DrawablyButton>
               )}
@@ -879,7 +983,8 @@ export const QuestionKnowledgeModal: React.FC<QuestionKnowledgeModalProps> = ({
         {/* Modal Bottom Bar */}
         <div className="bg-[#f7f2e5] border-t border-[#e3d9c4] px-5 py-3 flex items-center justify-between text-xs">
           <div className="text-[#786c5e]">
-            已收录全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 · 覆盖真题 {allQuestions.length} 道
+            已收录全科知识图谱核心考点 {RAW_KNOWLEDGE_POINTS.length} 项 ·
+            覆盖真题 {allQuestions.length} 道
           </div>
           <DrawablyButton
             variant="solid"
