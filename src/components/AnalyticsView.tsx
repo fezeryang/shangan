@@ -37,6 +37,7 @@ import {
   Stethoscope,
   ArrowRight,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface AnalyticsViewProps {
   stats: StudyStats;
@@ -245,14 +246,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <p className="text-xs sm:text-sm text-[#786c5e] max-w-md mx-auto leading-relaxed">
             看板的所有指标都严格来自真实作答记录。先去刷几道题，正确率、用时效率、考点掌握度与作息热力图才会逐一生效。
           </p>
-          <button
-            type="button"
+          <DrawablyButton
+            variant="solid"
             onClick={() => onSelectSubCategory?.("all", "all")}
-            className="px-6 py-2.5 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-sm font-semibold inline-flex items-center gap-2 shadow-xs cursor-pointer transition-colors"
+            className="!px-6 !py-2.5 text-sm font-semibold"
           >
-            <span>去刷题</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+            <span className="flex items-center gap-2">
+              <span>去刷题</span>
+              <ArrowRight className="w-4 h-4" />
+            </span>
+          </DrawablyButton>
         </div>
       </div>
     );
@@ -703,14 +706,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               </div>
 
               <div className="space-y-2">
-                <button
-                  type="button"
+                <DrawablyButton
+                  variant="solid"
                   onClick={() => setIsDiagnoseOpen(true)}
-                  className="w-full py-2.5 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                  className="w-full !py-2.5 text-xs font-semibold"
                 >
-                  <Stethoscope className="w-3.5 h-3.5" />
-                  <span>生成我的 AI 学情诊断</span>
-                </button>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    <span>生成我的 AI 学情诊断</span>
+                  </span>
+                </DrawablyButton>
                 <p className="text-[11px] text-[#8c7e6d] text-center">
                   基于你的真实作答与错题记录生成（与错题本同一入口）
                 </p>

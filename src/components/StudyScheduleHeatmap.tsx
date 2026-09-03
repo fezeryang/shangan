@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Calendar,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface StudyScheduleHeatmapProps {
   /** 全量作答历史（含重做轨迹），作息分布反映真实学习时间而非每题最后一次 */
@@ -374,61 +375,39 @@ export const StudyScheduleHeatmap: React.FC<StudyScheduleHeatmapProps> = ({
         </div>
 
         {/* View & Metric Mode Switchers */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="inline-flex rounded-xl bg-[#f6efe2] p-1 text-xs border border-[#e8ded0]">
-            <button
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <div className="flex items-center gap-1.5">
+            <DrawablyButton
+              variant={viewType === "hourly" ? "scribble" : "outline"}
               onClick={() => setViewType("hourly")}
-              className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                viewType === "hourly"
-                  ? "bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs"
-                  : "text-[#6e6153] hover:text-[#26201a]"
-              }`}
+              className="!px-3 !py-1 font-semibold"
             >
               24小时全天分布
-            </button>
-            <button
+            </DrawablyButton>
+            <DrawablyButton
+              variant={viewType === "weekMatrix" ? "scribble" : "outline"}
               onClick={() => setViewType("weekMatrix")}
-              className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                viewType === "weekMatrix"
-                  ? "bg-[#fffdfa] text-[#26201a] font-bold shadow-2xs"
-                  : "text-[#6e6153] hover:text-[#26201a]"
-              }`}
+              className="!px-3 !py-1 font-semibold"
             >
               周作息黄金矩阵
-            </button>
+            </DrawablyButton>
           </div>
 
-          <div className="inline-flex rounded-xl bg-[#f6efe2] p-1 text-xs border border-[#e8ded0]">
-            <button
-              onClick={() => setHeatmapMode("productivity")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                heatmapMode === "productivity"
-                  ? "bg-[#b45309] text-white shadow-2xs font-bold"
-                  : "text-[#6e6153] hover:text-[#26201a]"
-              }`}
-            >
-              综合能效
-            </button>
-            <button
-              onClick={() => setHeatmapMode("accuracy")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                heatmapMode === "accuracy"
-                  ? "bg-[#b45309] text-white shadow-2xs font-bold"
-                  : "text-[#6e6153] hover:text-[#26201a]"
-              }`}
-            >
-              正确率
-            </button>
-            <button
-              onClick={() => setHeatmapMode("volume")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                heatmapMode === "volume"
-                  ? "bg-[#b45309] text-white shadow-2xs font-bold"
-                  : "text-[#6e6153] hover:text-[#26201a]"
-              }`}
-            >
-              答题活跃度
-            </button>
+          <div className="flex items-center gap-1.5">
+            {[
+              ["productivity", "综合能效"],
+              ["accuracy", "正确率"],
+              ["volume", "答题活跃度"],
+            ].map(([mode, label]) => (
+              <DrawablyButton
+                key={mode}
+                variant={heatmapMode === mode ? "scribble" : "outline"}
+                onClick={() => setHeatmapMode(mode as HeatmapMode)}
+                className="!px-2.5 !py-1 font-semibold"
+              >
+                {label}
+              </DrawablyButton>
+            ))}
           </div>
         </div>
       </div>
