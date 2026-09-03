@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
-import { AIQuestion, UserAnswerRecord } from "../types";
+import type React from "react";
+import { useMemo, useState } from "react";
+import type { AIQuestion, UserAnswerRecord } from "../types";
 import { AIQuestionCard } from "./AIQuestionCard";
 import {
   Sparkles,
@@ -9,6 +10,7 @@ import {
   Clock,
   Library,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface AIVariantBankProps {
   questions: AIQuestion[];
@@ -85,18 +87,21 @@ export const AIVariantBank: React.FC<AIVariantBankProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <DrawablyButton
+            tone="danger"
             onClick={() => {
               if (window.confirm("确定要清空所有 AI 变式题及作答记录吗？")) {
                 onClearAll();
               }
             }}
             disabled={questions.length === 0}
-            className="px-3.5 py-2 text-xs font-semibold text-[#b91c1c] bg-[#fef2f2] hover:bg-[#fee2e2] border border-[#fecaca] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="!px-3.5 !py-2 text-xs font-semibold"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>清空 AI 题库</span>
-          </button>
+            <span className="flex items-center gap-1.5">
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>清空 AI 题库</span>
+            </span>
+          </DrawablyButton>
         </div>
       </div>
 
@@ -147,7 +152,7 @@ export const AIVariantBank: React.FC<AIVariantBankProps> = ({
       </div>
 
       {/* Category Tabs */}
-      <div className="flex flex-wrap items-center gap-1.5 text-xs overflow-x-auto pb-1">
+      <div className="flex flex-wrap items-center gap-2 text-xs overflow-x-auto pb-1">
         {[
           { id: "all", label: `全部 (${questions.length})` },
           {
@@ -163,17 +168,14 @@ export const AIVariantBank: React.FC<AIVariantBankProps> = ({
             label: `图形推理 (${questions.filter((q) => q.category === "graphic").length})`,
           },
         ].map((tab) => (
-          <button
+          <DrawablyButton
             key={tab.id}
+            variant={filterCat === tab.id ? "scribble" : "outline"}
             onClick={() => setFilterCat(tab.id as any)}
-            className={`px-3.5 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-              filterCat === tab.id
-                ? "bg-[#b45309] text-white shadow-2xs"
-                : "bg-[#fdfbf7] border border-[#e3d9c4] text-[#6e6153] hover:bg-[#f6eee0]"
-            }`}
+            className="!px-3.5 !py-2 font-semibold"
           >
             {tab.label}
-          </button>
+          </DrawablyButton>
         ))}
       </div>
 

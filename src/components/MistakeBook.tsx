@@ -10,6 +10,7 @@ import {
     Check,
     Stethoscope,
 } from "lucide-react";
+import { DrawablyButton } from "drawably/react";
 
 interface MistakeBookProps {
     mistakeIds: string[];
@@ -101,7 +102,7 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button
+                    <DrawablyButton
                         onClick={() => setIsDiagnoseOpen(true)}
                         disabled={mistakeQuestions.length === 0}
                         title={
@@ -109,14 +110,17 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                                 ? "暂无错题，无需诊断"
                                 : "AI 深度分析错题规律，生成专属提分处方"
                         }
-                        className="px-3.5 py-2 text-xs font-semibold text-[#854d0e] bg-[#fef7ea] hover:bg-[#faeed6] border border-[#ebdcb9] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="!px-3.5 !py-2 text-xs font-semibold"
                     >
-                        <Stethoscope className="w-3.5 h-3.5" />
-                        <span>AI 学情诊断</span>
-                    </button>
+                        <span className="flex items-center gap-1.5">
+                            <Stethoscope className="w-3.5 h-3.5" />
+                            <span>AI 学情诊断</span>
+                        </span>
+                    </DrawablyButton>
 
                     {mistakeQuestions.length > 0 && (
-                        <button
+                        <DrawablyButton
+                            tone="danger"
                             onClick={() => {
                                 if (
                                     window.confirm("确定要清空所有错题记录吗？")
@@ -124,18 +128,20 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                                     onClearAllMistakes();
                                 }
                             }}
-                            className="px-3.5 py-2 text-xs font-semibold text-[#b91c1c] bg-[#fef2f2] hover:bg-[#fee2e2] border border-[#fecaca] rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                            className="!px-3.5 !py-2 text-xs font-semibold"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>清空错题本</span>
-                        </button>
+                            <span className="flex items-center gap-1.5">
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>清空错题本</span>
+                            </span>
+                        </DrawablyButton>
                     )}
                 </div>
             </div>
 
             {/* Category Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1">
+                <div className="flex items-center gap-2 text-xs overflow-x-auto pb-1">
                     {[
                         {
                             id: "all",
@@ -154,17 +160,14 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
                             label: `图形推理 (${mistakeQuestions.filter((q) => q.category === "graphic").length})`,
                         },
                     ].map((tab) => (
-                        <button
+                        <DrawablyButton
                             key={tab.id}
+                            variant={filterCat === tab.id ? "scribble" : "outline"}
                             onClick={() => setFilterCat(tab.id as any)}
-                            className={`px-3.5 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-                                filterCat === tab.id
-                                    ? "bg-[#b45309] text-white shadow-2xs"
-                                    : "bg-[#fdfbf7] border border-[#e3d9c4] text-[#6e6153] hover:bg-[#f6eee0]"
-                            }`}
+                            className="!px-3.5 !py-2 font-semibold"
                         >
                             {tab.label}
-                        </button>
+                        </DrawablyButton>
                     ))}
                 </div>
             </div>
@@ -210,13 +213,15 @@ export const MistakeBook: React.FC<MistakeBookProps> = ({
 
                             {/* Mastered / Remove Action Button */}
                             <div className="mt-2 flex justify-end">
-                                <button
+                                <DrawablyButton
                                     onClick={() => onRemoveMistake(q.id)}
-                                    className="text-xs text-[#15803d] hover:text-[#14532d] bg-[#edf7ee] hover:bg-[#dcfce7] border border-[#bbf7d0] px-3 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                                    className="!px-3 !py-1 text-xs font-semibold"
                                 >
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>已彻底掌握，移出本题</span>
-                                </button>
+                                    <span className="flex items-center gap-1">
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>已彻底掌握，移出本题</span>
+                                    </span>
+                                </DrawablyButton>
                             </div>
                         </div>
                     ))}
