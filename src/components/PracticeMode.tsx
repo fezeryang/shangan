@@ -12,6 +12,7 @@ import {
   BarChart3,
   SlidersHorizontal,
 } from 'lucide-react';
+import { DrawablyButton, DrawablyInput, DrawablySelect } from 'drawably/react';
 
 interface PracticeModeProps {
   onOpenAI: (tab: 'explain' | 'graphic' | 'variant' | 'chat', q?: Question) => void;
@@ -127,52 +128,49 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Category Selection Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <button
+      {/* Category Selection Cards：手绘选科卡，选中=涂鸦填充 */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <DrawablyButton
+          variant={selectedCategory === 'all' ? 'scribble' : 'outline'}
           onClick={() => {
             setSelectedCategory('all');
             setSelectedSubCategory('all');
             setCurrentIndex(0);
           }}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer shadow-2xs ${
-            selectedCategory === 'all'
-              ? 'bg-[#2c241d] text-[#faf6ee] border-[#2c241d] ring-2 ring-[#b45309]'
-              : 'bg-[#fdfbf7] text-[#2c241d] border-[#e3d9c4] hover:bg-[#f9f4ea]'
-          }`}
+          className="!block w-full text-left !p-4"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider">全部题库</span>
-            <BookOpen className="w-4 h-4 opacity-80" />
-          </div>
-          <div className="text-xl font-extrabold mt-2 font-display">{allQuestions.length} 题</div>
-          <p className="text-[11px] opacity-75 mt-0.5">全科综合全真模拟覆盖</p>
-        </button>
+          <span className="block w-full">
+            <span className="flex items-center justify-between">
+              <span className="text-xs font-bold tracking-wider">全部题库</span>
+              <BookOpen className="w-4 h-4 opacity-80" />
+            </span>
+            <span className="block text-xl font-extrabold mt-2 font-display">{allQuestions.length} 题</span>
+            <span className="block text-[11px] opacity-75 mt-0.5">全科综合全真模拟覆盖</span>
+          </span>
+        </DrawablyButton>
 
         {Object.entries(categoryMeta).map(([catKey, meta]) => {
-          const isSelected = selectedCategory === catKey;
           const Icon = catKey === 'verbal' ? BookOpen : catKey === 'data' ? BarChart3 : Shapes;
           return (
-            <button
+            <DrawablyButton
               key={catKey}
+              variant={selectedCategory === catKey ? 'scribble' : 'outline'}
               onClick={() => {
                 setSelectedCategory(catKey as any);
                 setSelectedSubCategory('all');
                 setCurrentIndex(0);
               }}
-              className={`p-4 rounded-2xl border text-left transition-all cursor-pointer shadow-2xs ${
-                isSelected
-                  ? 'bg-[#b45309] text-white border-[#b45309] ring-2 ring-[#b45309]/50'
-                  : 'bg-[#fdfbf7] text-[#2c241d] border-[#e3d9c4] hover:bg-[#f9f4ea]'
-              }`}
+              className="!block w-full text-left !p-4"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">{meta.shortName}</span>
-                <Icon className="w-4 h-4 opacity-80" />
-              </div>
-              <div className="text-xl font-extrabold mt-2 font-display">{meta.count} 题</div>
-              <p className="text-[11px] opacity-80 mt-0.5 line-clamp-1">{meta.name}</p>
-            </button>
+              <span className="block w-full">
+                <span className="flex items-center justify-between">
+                  <span className="text-xs font-bold">{meta.shortName}</span>
+                  <Icon className="w-4 h-4 opacity-80" />
+                </span>
+                <span className="block text-xl font-extrabold mt-2 font-display">{meta.count} 题</span>
+                <span className="block text-[11px] opacity-80 mt-0.5 line-clamp-1">{meta.name}</span>
+              </span>
+            </DrawablyButton>
           );
         })}
       </div>
@@ -216,14 +214,16 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
 
           {/* View Mode Toggle, Mode Switch & Random */}
           <div className="flex items-center gap-2">
-            <button
+            <DrawablyButton
               onClick={handleRandomQuestion}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#f5eee3] hover:bg-[#ede3d3] text-[#4a3e31] rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+              className="!px-3 !py-1.5 text-xs font-semibold"
               title="随机抽一道练习"
             >
-              <Shuffle className="w-3.5 h-3.5 text-[#b45309]" />
-              <span>随机抽题</span>
-            </button>
+              <span className="flex items-center gap-1">
+                <Shuffle className="w-3.5 h-3.5" />
+                <span>随机抽题</span>
+              </span>
+            </DrawablyButton>
 
             <div className="bg-[#f3ece0] p-0.5 rounded-lg flex text-xs">
               <button
@@ -250,55 +250,54 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
         <div className="pt-2 border-t border-[#ede4d2] flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2">
             {/* Status Filter */}
-            <select
+            <DrawablySelect
               value={selectedStatus}
               onChange={(e: any) => setSelectedStatus(e.target.value)}
-              className="bg-[#fbf9f4] border border-[#dccfb7] rounded-lg px-2.5 py-1 text-[#4a3e31]"
+              className="!px-2.5 !py-1 text-xs bg-[var(--card)] text-[color:var(--ink)]"
             >
               <option value="all">所有做题状态</option>
               <option value="unanswered">仅看未做题</option>
               <option value="answered">仅看已做题</option>
               <option value="favorite">仅看我的收藏</option>
-            </select>
+            </DrawablySelect>
 
             {/* Difficulty Filter */}
-            <select
+            <DrawablySelect
               value={selectedDifficulty}
               onChange={(e: any) =>
                 setSelectedDifficulty(e.target.value === 'all' ? 'all' : Number(e.target.value))
               }
-              className="bg-[#fbf9f4] border border-[#dccfb7] rounded-lg px-2.5 py-1 text-[#4a3e31]"
+              className="!px-2.5 !py-1 text-xs bg-[var(--card)] text-[color:var(--ink)]"
             >
               <option value="all">全部难度星级</option>
               <option value="3">★★★ 基础入门</option>
               <option value="4">★★★★ 进阶提升</option>
               <option value="5">★★★★★ 压轴难题</option>
-            </select>
+            </DrawablySelect>
 
             {/* Submit Mode Toggle */}
-            <button
+            <DrawablyButton
+              variant={instantSubmitMode ? 'scribble' : 'outline'}
               onClick={() => setInstantSubmitMode(!instantSubmitMode)}
-              className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                instantSubmitMode
-                  ? 'bg-[#fef8ea] text-[#b45309] border-[#e8ce8a]'
-                  : 'bg-[#fbf9f4] text-[#786c5e] border-[#dccfb7] hover:bg-[#f5eee3]'
-              }`}
+              className="!px-2.5 !py-1 text-xs font-medium"
               title={instantSubmitMode ? '当前模式：点击选项即时判定' : '当前模式：选择选项后需点击确认提交'}
             >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{instantSubmitMode ? '模式：即选即判' : '模式：确认后核对'}</span>
-            </button>
+              <span className="flex items-center gap-1">
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{instantSubmitMode ? '模式：即选即判' : '模式：确认后核对'}</span>
+              </span>
+            </DrawablyButton>
           </div>
 
           {/* Search Input */}
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-3.5 h-3.5 text-[#968877] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <Search className="w-3.5 h-3.5 text-[#968877] absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
+            <DrawablyInput
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索题干关键词、题型..."
-              className="w-full pl-8 pr-3 py-1 bg-[#fbf9f4] border border-[#dccfb7] rounded-lg text-xs text-[#26201a] focus:outline-[#b45309]"
+              className="w-full !pl-8 !pr-3 !py-1 text-xs bg-[var(--card)] text-[color:var(--ink)]"
             />
           </div>
         </div>
@@ -335,27 +334,33 @@ export const PracticeMode: React.FC<PracticeModeProps> = ({
 
           {/* Navigation Controls */}
           <div className="flex items-center justify-between pt-2">
-            <button
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
               disabled={safeIndex === 0}
-              className="px-4 py-2 bg-[#fdfbf7] border border-[#e3d9c4] rounded-xl text-xs font-semibold text-[#4a3e31] hover:bg-[#f6efe2] disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="!px-4 !py-2 text-xs font-semibold"
             >
-              <ChevronLeft className="w-4 h-4" />
-              <span>上一题</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <ChevronLeft className="w-4 h-4" />
+                <span>上一题</span>
+              </span>
+            </DrawablyButton>
 
-            <div className="text-xs text-[#786c5e] font-medium">
+            <div className="text-xs text-[color:var(--ink-soft)] font-medium font-display">
               <span>{safeIndex + 1} / {filteredQuestions.length}</span>
             </div>
 
-            <button
+            <DrawablyButton
+              variant="solid"
               onClick={() => setCurrentIndex((prev) => Math.min(filteredQuestions.length - 1, prev + 1))}
               disabled={safeIndex === filteredQuestions.length - 1}
-              className="px-4 py-2 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-xs font-semibold disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="!px-4 !py-2 text-xs font-bold"
             >
-              <span>下一题</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <span className="flex items-center gap-1.5">
+                <span>下一题</span>
+                <ChevronRight className="w-4 h-4" />
+              </span>
+            </DrawablyButton>
           </div>
         </div>
       ) : (

@@ -13,6 +13,7 @@ import {
   BookMarked,
   Clock,
 } from "lucide-react";
+import { DrawablyButton, DrawablySelect } from "drawably/react";
 
 interface ExamModeProps {
   onOpenAI: (
@@ -204,17 +205,14 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[5, 10, 15].map((len) => (
-                  <button
+                  <DrawablyButton
                     key={len}
+                    variant={examLength === len ? 'scribble' : 'outline'}
                     onClick={() => setExamLength(len)}
-                    className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      examLength === len
-                        ? "bg-[#b45309] text-white shadow-xs"
-                        : "bg-[#fffdfa] border border-[#ded3be] text-[#4a3e31] hover:bg-[#f3ead7]"
-                    }`}
+                    className="!py-2 text-xs font-bold"
                   >
                     {len} 题 ({len}分钟)
-                  </button>
+                  </DrawablyButton>
                 ))}
               </div>
             </div>
@@ -224,27 +222,30 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               <label className="block text-xs font-semibold text-[#4a3e31]">
                 科目范围：
               </label>
-              <select
+              <DrawablySelect
                 value={selectedCategory}
                 onChange={(e: any) => setSelectedCategory(e.target.value)}
-                className="w-full p-2 bg-[#fffdfa] border border-[#ded3be] rounded-lg text-xs font-medium text-[#26201a]"
+                className="w-full !p-2 text-xs font-medium bg-[var(--card)] text-[color:var(--ink)]"
               >
                 <option value="all">全科综合模拟 (言语+资料+图推)</option>
                 <option value="graphic">专项模考：图形推理空间思维</option>
                 <option value="data">专项模考：资料分析与速算</option>
                 <option value="verbal">专项模考：言语理解与推理</option>
-              </select>
+              </DrawablySelect>
             </div>
           </div>
 
           <div className="text-center">
-            <button
+            <DrawablyButton
+              variant="solid"
               onClick={handleStartExam}
-              className="px-8 py-3.5 bg-gradient-to-r from-[#b45309] to-[#c2410c] hover:from-[#9a3412] hover:to-[#a13208] text-white font-bold text-sm sm:text-base rounded-xl shadow-md transition-all active:scale-95 cursor-pointer inline-flex items-center gap-2"
+              className="!px-8 !py-3.5 text-sm sm:text-base font-bold"
             >
-              <Timer className="w-5 h-5" />
-              <span>进入考场并开始倒计时</span>
-            </button>
+              <span className="flex items-center gap-2">
+                <Timer className="w-5 h-5" />
+                <span>进入考场并开始倒计时</span>
+              </span>
+            </DrawablyButton>
           </div>
         </div>
       )}
@@ -277,7 +278,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
             </div>
 
             {/* Submit Button */}
-            <button
+            <DrawablyButton
+              tone="danger"
               onClick={() => {
                 if (
                   window.confirm(
@@ -287,10 +289,10 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                   handleFinishExam();
                 }
               }}
-              className="px-3.5 py-1.5 bg-[#b91c1c] hover:bg-[#991b1b] text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs"
+              className="!px-3.5 !py-1.5 text-xs font-bold"
             >
               提交试卷
-            </button>
+            </DrawablyButton>
           </div>
 
           {/* Quick Question Number Matrix */}
@@ -322,7 +324,8 @@ export const ExamMode: React.FC<ExamModeProps> = ({
               })}
             </div>
 
-            <button
+            <DrawablyButton
+              variant={markedQuestions.includes(currentQ.id) ? 'scribble' : 'outline'}
               onClick={() => {
                 setMarkedQuestions((prev) =>
                   prev.includes(currentQ.id)
@@ -330,16 +333,10 @@ export const ExamMode: React.FC<ExamModeProps> = ({
                     : [...prev, currentQ.id],
                 );
               }}
-              className={`text-xs px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
-                markedQuestions.includes(currentQ.id)
-                  ? "bg-[#fef7ea] text-[#b45309] border-[#e8ce8a] font-bold"
-                  : "bg-[#f8f3e8] text-[#6e6153] border-[#ded3be] hover:bg-[#f3ead7]"
-              }`}
+              className="!px-2.5 !py-1 text-xs font-semibold"
             >
-              {markedQuestions.includes(currentQ.id)
-                ? "★ 已标记存疑"
-                : "☆ 标记存疑"}
-            </button>
+              {markedQuestions.includes(currentQ.id) ? "★ 已标记存疑" : "☆ 标记存疑"}
+            </DrawablyButton>
           </div>
 
           {/* Current Question Card (in exam, selecting is draft, no answers shown until test finished) */}
@@ -370,33 +367,42 @@ export const ExamMode: React.FC<ExamModeProps> = ({
 
           {/* Bottom Nav Prev / Next */}
           <div className="flex items-center justify-between pt-2">
-            <button
+            <DrawablyButton
+              tone="neutral"
               onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
               disabled={currentIndex === 0}
-              className="px-4 py-2 bg-[#fdfbf7] border border-[#e3d9c4] rounded-xl text-xs font-semibold text-[#4a3e31] hover:bg-[#f6eee0] disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
+              className="!px-4 !py-2 text-xs font-semibold"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>上一题</span>
-            </button>
+              <span className="flex items-center gap-1.5">
+                <ArrowLeft className="w-4 h-4" />
+                <span>上一题</span>
+              </span>
+            </DrawablyButton>
 
             {currentIndex < questions.length - 1 ? (
-              <button
+              <DrawablyButton
+                variant="solid"
                 onClick={() =>
                   setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))
                 }
-                className="px-5 py-2 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="!px-5 !py-2 text-xs font-bold"
               >
-                <span>下一题</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <span>下一题</span>
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              </DrawablyButton>
             ) : (
-              <button
+              <DrawablyButton
+                variant="solid"
                 onClick={handleFinishExam}
-                className="px-5 py-2 bg-[#15803d] hover:bg-[#166534] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="!px-5 !py-2 text-xs font-bold"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>完成答题并交卷</span>
-              </button>
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>完成答题并交卷</span>
+                </span>
+              </DrawablyButton>
             )}
           </div>
         </div>
@@ -501,13 +507,16 @@ export const ExamMode: React.FC<ExamModeProps> = ({
 
             {/* Actions */}
             <div className="mt-8 pt-6 border-t border-[#e8ded0] flex flex-wrap items-center justify-center gap-3">
-              <button
+              <DrawablyButton
+                variant="solid"
                 onClick={() => setExamStarted(false)}
-                className="px-6 py-2.5 bg-[#b45309] hover:bg-[#9a3412] text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 shadow-xs"
+                className="!px-6 !py-2.5 text-xs sm:text-sm font-bold"
               >
-                <RotateCcw className="w-4 h-4" />
-                <span>开启下一轮模考</span>
-              </button>
+                <span className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  <span>开启下一轮模考</span>
+                </span>
+              </DrawablyButton>
             </div>
           </div>
 
