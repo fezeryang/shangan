@@ -403,11 +403,11 @@ const StaticDemo: React.FC<{ sub: string }> = ({ sub }) => {
         </p>
       </div>
       <div className="flex items-center justify-around gap-2 p-3 rounded-xl bg-[#fcf8ef] border border-[#ebdcb9]">
-        {/* pi-lens-ignore: dangerouslySetInnerHTML */}
         {rendered.stemFigures.map((f) => (
           <div
             key={f.label}
             className="w-16 h-16 bg-white rounded-lg border border-[#ded2bd]"
+            // pi-lens-ignore: dangerouslySetInnerHTML
             dangerouslySetInnerHTML={{ __html: sanitizeSvg(f.svg) }}
           />
         ))}
