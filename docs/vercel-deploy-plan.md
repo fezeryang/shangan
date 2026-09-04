@@ -1,6 +1,18 @@
 # Vercel 部署计划（深度审查版）
 
-> 状态：待执行。深度审查基于 `server.ts` 全量、`.env` 实际配置、AGENTS.md、git 状态、构建产物实测与 Vercel 官方文档逐条验证。
+> 状态：✅ 已执行完成（2026-09-04）。生产地址：https://shangan-cyan.vercel.app
+
+## 执行结果记录
+
+- **Phase 0–2**：全部完成。项目 `shangan` 已创建并关联 GitHub，7 个环境变量已注入（Production+Preview），函数区域 hkg1。
+- **Phase 3 验收**：静态（首页/SPA 回退/515 张 qbank 图）全部 200；`/api/health` 200；`/api/ai/status` 正确返回 glm-5.2 配置；explain、generate-variant（spec→校验→确定性渲染→机械验证全链路）、chat 实测 200。
+- **计划外发现（3 个平台坑，均已解决）**：
+  1. Vercel 新 Node 运行时逐文件编译 TS 且保留无后缀导入，ESM 解析直接报错 → 改为 esbuild 预打包自包含入口（复用项目既有打包模式）。
+  2. `api/index.cjs` 的 `.cjs` 扩展名不被 @vercel/node 识别为函数入口 → 改输出 `api/index.mjs`（ESM）。
+  3. 新建项目默认 Deployment Protection 保护的是 per-deployment URL，项目生产域名（shangan-cyan.vercel.app）本身公开，无需改设置。
+- **遗留（非部署问题）**：主引擎 muyuan.do 中转站服务端当前不可用（本地 500/超时，Vercel 401 Invalid token），MiniMax M3 兜底按设计无缝接管。中转站恢复后主引擎自动回归，无需改动。
+- **最终架构差异**：函数入口为 `apiEntry.ts`（源）→ esbuild → `api/index.mjs`（自包含 bundle，已入库）；`npm run build:api` 由 `vercel.json` buildCommand 触发。
+- **Phase 4 待办**：自定义域名（大陆访问 vercel.app 不稳）、API 鉴权/限流护栏（`/api/ai/*` 公网无鉴权）。
 
 ## 一、审查发现（按影响排序）
 
