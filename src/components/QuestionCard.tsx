@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Question, StudyStats, UserAnswerRecord } from "../types";
+import type React from "react";
+import { useState, useEffect, useRef } from "react";
+import type { Question, StudyStats, UserAnswerRecord } from "../types";
 import { QuestionKnowledgeModal } from "./QuestionKnowledgeModal";
 import {
   Sparkles,
@@ -366,32 +367,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         </div>
 
         {/* Action Bar: Submit & Check / Retry */}
-        {!hasSubmitted ? (
-          <div className="pt-3 border-t border-[#e8dfcb] flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-[#786c5e]">
-              {draftOption ? (
-                <span>
-                  已选择 <strong>{draftOption}</strong>{" "}
-                  选项，确认无误后点击右侧提交
-                </span>
-              ) : (
-                <span>请先选择你的答案（支持键盘按键 A / B / C / D）</span>
-              )}
-            </span>
-
-            <DrawablyButton
-              variant="solid"
-              onClick={handleConfirmSubmit}
-              disabled={!draftOption}
-              className="!px-5 !py-2 text-xs sm:text-sm font-bold"
-            >
-              <span className="flex items-center gap-1.5">
-                <CheckCheck className="w-4 h-4" />
-                <span>确认作答 · 核对答案</span>
-              </span>
-            </DrawablyButton>
-          </div>
-        ) : (
+        {hasSubmitted ? (
           <div className="pt-3 border-t border-[#e8dfcb] flex flex-wrap items-center justify-between gap-2">
             {/* AI Helper Triggers */}
             <div className="flex flex-wrap items-center gap-2">
@@ -478,6 +454,31 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 ) : (
                   <ChevronDown className="w-4 h-4" />
                 )}
+              </span>
+            </DrawablyButton>
+          </div>
+        ) : (
+          <div className="pt-3 border-t border-[#e8dfcb] flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-[#786c5e]">
+              {draftOption ? (
+                <span>
+                  已选择 <strong>{draftOption}</strong>{" "}
+                  选项，确认无误后点击右侧提交
+                </span>
+              ) : (
+                <span>请先选择你的答案（支持键盘按键 A / B / C / D）</span>
+              )}
+            </span>
+
+            <DrawablyButton
+              variant="solid"
+              onClick={handleConfirmSubmit}
+              disabled={!draftOption}
+              className="!px-5 !py-2 text-xs sm:text-sm font-bold"
+            >
+              <span className="flex items-center gap-1.5">
+                <CheckCheck className="w-4 h-4" />
+                <span>确认作答 · 核对答案</span>
               </span>
             </DrawablyButton>
           </div>
