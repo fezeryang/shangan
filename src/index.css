@@ -61,11 +61,15 @@ body::after {
   --drawably-ink: #7c3a0c;
 }
 
-/* 选中态：不用斜线填充，改为清淡标记黄底，避免视觉疲劳 */
+/* 选中态：不用斜线填充，改为清淡标记黄底，避免视觉疲劳。
+   drawably@0.3.10 的 destroy() 不清除 drawably-button--{variant} 类，
+   variant 切回 outline 后旧 --scribble 类残留导致深色背景停在
+   上一次选中的按钮上；SVG 涂鸦层随 variant 正确重建，故以 :has()
+   涂鸦层存在作为选中真相源。 */
 .drawably-svg .drawably-scribble {
   display: none;
 }
-.drawably-button--scribble {
+.drawably-button--scribble:has(.drawably-scribble) {
   color: #33291d;
   background: color-mix(in srgb, var(--marker) 38%, transparent);
   border-radius: 4px;
