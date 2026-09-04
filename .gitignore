@@ -10,4 +10,4 @@ coverage/
 .demo/
 minitool/
 api/*
-!api/index.cjs
+!api/index.mjs
