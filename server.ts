@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import {
@@ -507,11 +506,9 @@ function legacyGraphicComplexityOk(parsed: any): boolean {
   );
 }
 
-async function startServer() {
+/** 组装全部中间件与路由；Vercel 上由 api/index.ts 导出为 Serverless Function。 */
+export function buildApp() {
   const app = express();
-  // 默认使用 5173（Vite 约定端口），避免与占用 3000 的其他服务冲突。
-  // 可通过环境变量 PORT 覆盖。
-  const PORT = Number(process.env.PORT) || 5173;
 
   app.use(express.json({ limit: "10mb" }));
 
@@ -779,7 +776,15 @@ async function startServer() {
     }
   });
 
-  // Vite middleware setup
+  return app;
+}
+
+async function startServer() {
+  const app = buildApp();
+  // 默认使用 5173（Vite 约定端口），避免与占用 3000 的其他服务冲突。
+  // 可通过环境变量 PORT 覆盖。
+  const PORT = Number(process.env.PORT) || 5173;
+
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -787,6 +792,8 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   } else {
+    // 动态导入：避免 vite 被打进 Vercel 函数的生产 bundle
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -808,4 +815,5 @@ async function startServer() {
   });
 }
 
-startServer();
+// Vercel 上由 api/index.ts 导出 buildApp 作为 Serverless Function，不监听端口
+if (!process.env.VERCEL) startServer();
