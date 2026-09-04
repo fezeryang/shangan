@@ -9,4 +9,5 @@ coverage/
 
 .demo/
 minitool/
-api/
+api/*
+!api/index.cjs
