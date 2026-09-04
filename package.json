@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+  "build:api": "esbuild apiEntry.ts --bundle --platform=node --format=cjs --packages=external --outfile=api/index.cjs",
     "test": "tsx scripts/check-prompts.ts && tsx scripts/check-figure-engine.ts && tsx scripts/check-json-loose.ts && tsx scripts/check-analytics.ts",
     "clean-explanations": "tsx scripts/clean-explanations.ts",
     "enrich-figures": "tsx scripts/enrich-figure-descriptions.ts",
