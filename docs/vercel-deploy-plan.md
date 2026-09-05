@@ -1,6 +1,6 @@
 # Vercel 部署计划（深度审查版）
 
-> 状态：✅ 已执行完成（2026-09-04）。生产地址：https://shangan-cyan.vercel.app
+> 状态：✅ 已执行完成（2026-09-04）。生产地址：<https://shangan-cyan.vercel.app>
 
 ## 执行结果记录
 
@@ -136,6 +136,7 @@ npm run build && npm start   # 生产模式本地仍正常
    root.use("/api", buildApp());
    export default root;
    ```
+
 1. 验收全绿 → main 分支自动为生产。回滚用 Instant Rollback。
 
 ### Phase 4 — 收尾与建议项（不阻塞上线）
